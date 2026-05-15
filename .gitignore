@@ -4,3 +4,8 @@ dashboard/node_modules/
 dashboard/dist/
 *.log
 .DS_Store
+
+# Electron build artifacts
+release/
+.mongo-data/
+.logs/

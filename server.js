@@ -25,24 +25,43 @@ app.use('/api/templates', templatesRouter);
 app.use('/api/admin', adminRouter);
 app.use('/webhook', webhookRouter);
 
-// Serve dashboard in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, 'dashboard/dist')));
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'dashboard/dist/index.html'));
+// Serve dashboard in production or Electron
+const distPath = process.env.DASHBOARD_DIST || path.join(__dirname, 'dashboard/dist');
+if (process.env.NODE_ENV === 'production' || process.env.ELECTRON_APP === '1') {
+  app.use(express.static(distPath));
+  app.get(/^\/(?!api|webhook|health).*/, (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
   });
 }
 
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
-// MongoDB connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/whatsapp-bot-saas')
-  .then(() => {
-    console.log('✅ MongoDB connected');
-    app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-  })
-  .catch(err => {
-    console.error('❌ MongoDB connection failed:', err.message);
+// Boot helper used both by CLI and Electron
+async function start() {
+  const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/whatsapp-bot-saas';
+  await mongoose.connect(mongoUri);
+  console.log('✅ MongoDB connected');
+
+  return new Promise((resolve, reject) => {
+    const server = app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+      resolve(server);
+    });
+    server.on('error', reject);
+  });
+}
+
+async function stop() {
+  try { await mongoose.disconnect(); } catch {}
+}
+
+// Auto-start only when run directly (not when required by Electron)
+if (require.main === module) {
+  start().catch(err => {
+    console.error('❌ Boot failed:', err.message);
     process.exit(1);
   });
+}
+
+module.exports = { app, start, stop };

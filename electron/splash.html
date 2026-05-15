@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>WhatsBot SaaS</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
+      color: white;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      -webkit-app-region: drag;
+    }
+    .logo {
+      width: 64px; height: 64px;
+      background: #3b82f6;
+      border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 24px;
+      box-shadow: 0 8px 32px rgba(59, 130, 246, 0.4);
+    }
+    .logo svg { width: 36px; height: 36px; }
+    h1 { font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+    p.tagline { font-size: 13px; color: #9ca3af; margin-bottom: 36px; }
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #status {
+      font-size: 13px;
+      color: #d1d5db;
+      min-height: 20px;
+      text-align: center;
+    }
+    .version {
+      position: absolute;
+      bottom: 16px;
+      font-size: 11px;
+      color: #4b5563;
+    }
+  </style>
+</head>
+<body>
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+    </svg>
+  </div>
+  <h1>WhatsBot SaaS</h1>
+  <p class="tagline">Plataforma de bots de WhatsApp con IA</p>
+  <div class="spinner"></div>
+  <div id="status">Iniciando...</div>
+  <div class="version">v1.0.0</div>
+</body>
+</html>

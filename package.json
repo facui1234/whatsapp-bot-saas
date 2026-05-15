@@ -1,13 +1,19 @@
 {
   "name": "whatsapp-bot-saas",
   "version": "1.0.0",
-  "description": "WhatsApp AI Bot SaaS Platform",
-  "main": "server.js",
+  "description": "WhatsApp AI Bot SaaS Platform — desktop app",
+  "author": "WhatsBot",
+  "main": "electron/main.js",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
     "dashboard": "cd dashboard && npm run dev",
-    "build:dashboard": "cd dashboard && npm run build"
+    "build:dashboard": "cd dashboard && npm run build",
+    "electron": "electron .",
+    "electron:dev": "npm run build:dashboard && electron .",
+    "dist:win": "npm run build:dashboard && electron-builder --win --x64",
+    "dist:portable": "npm run build:dashboard && electron-builder --win portable --x64",
+    "pack": "npm run build:dashboard && electron-builder --dir"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",
@@ -15,10 +21,68 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "express-fileupload": "^1.5.1",
+    "mongodb-memory-server": "^10.1.2",
     "mongoose": "^8.5.1",
     "twilio": "^5.2.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.4"
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8",
+    "nodemon": "^3.1.4",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.34.5"
+  },
+  "build": {
+    "appId": "com.whatsbot.saas",
+    "productName": "WhatsBot SaaS",
+    "copyright": "Copyright © 2026 WhatsBot",
+    "directories": {
+      "output": "release",
+      "buildResources": "electron/assets"
+    },
+    "files": [
+      "electron/**/*",
+      "server.js",
+      "models/**/*",
+      "routes/**/*",
+      "dashboard/dist/**/*",
+      "node_modules/**/*",
+      "!node_modules/sharp/**/*",
+      "!node_modules/png-to-ico/**/*",
+      "!**/{.DS_Store,.git,.gitignore,.env,.env.*}",
+      "!**/*.{md,log}",
+      "!**/{test,tests,__tests__,docs,examples}/**/*",
+      "!**/*.map"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/mongodb-memory-server/**/*",
+      "node_modules/mongodb-memory-server-core/**/*",
+      "node_modules/find-cache-dir/**/*",
+      "dashboard/dist/**/*"
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "electron/assets/icon.ico",
+      "artifactName": "WhatsBot-SaaS-${version}-${arch}.${ext}",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "WhatsBot SaaS",
+      "installerIcon": "electron/assets/icon.ico",
+      "uninstallerIcon": "electron/assets/icon.ico",
+      "license": "LICENSE.txt"
+    },
+    "portable": {
+      "artifactName": "WhatsBot-SaaS-${version}-portable.${ext}"
+    }
   }
 }
