@@ -1,10 +1,11 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Bot, LayoutDashboard, MessageSquare, CreditCard, LogOut, Zap } from 'lucide-react';
+import { Bot, MessageSquare, CreditCard, LogOut, Zap, Terminal } from 'lucide-react';
 
 const navItems = [
   { to: '/bots', icon: Bot, label: 'Mis Bots' },
   { to: '/history', icon: MessageSquare, label: 'Conversaciones' },
   { to: '/plans', icon: CreditCard, label: 'Planes' },
+  { to: '/admin', icon: Terminal, label: 'Admin & Testing' },
 ];
 
 export default function Sidebar() {

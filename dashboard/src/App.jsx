@@ -5,6 +5,7 @@ import BotList from './pages/BotList.jsx';
 import BotForm from './pages/BotForm.jsx';
 import ConversationHistory from './pages/ConversationHistory.jsx';
 import PlanConfig from './pages/PlanConfig.jsx';
+import Admin from './pages/Admin.jsx';
 
 function RequireAuth() {
   const auth = localStorage.getItem('auth');
@@ -31,6 +32,7 @@ export default function App() {
           <Route path="/bots/:id/history" element={<ConversationHistory />} />
           <Route path="/history" element={<ConversationHistory />} />
           <Route path="/plans" element={<PlanConfig />} />
+          <Route path="/admin" element={<Admin />} />
           <Route path="/" element={<Navigate to="/bots" replace />} />
         </Route>
         <Route path="*" element={<Navigate to="/bots" replace />} />

@@ -8,6 +8,7 @@ const path = require('path');
 const botsRouter = require('./routes/bots');
 const webhookRouter = require('./routes/webhook');
 const templatesRouter = require('./routes/templates');
+const adminRouter = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,6 +22,7 @@ app.use(fileUpload({ limits: { fileSize: 5 * 1024 * 1024 } }));
 // API Routes
 app.use('/api/bots', botsRouter);
 app.use('/api/templates', templatesRouter);
+app.use('/api/admin', adminRouter);
 app.use('/webhook', webhookRouter);
 
 // Serve dashboard in production

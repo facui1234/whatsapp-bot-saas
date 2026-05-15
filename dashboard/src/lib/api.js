@@ -22,4 +22,13 @@ export const templatesApi = {
   get: rubric => api.get(`/templates/${rubric}`).then(r => r.data),
 };
 
+export const adminApi = {
+  health: () => api.get('/admin/health').then(r => r.data),
+  stats: () => api.get('/admin/stats').then(r => r.data),
+  logs: (params) => api.get('/admin/logs', { params }).then(r => r.data),
+  testBot: (id, message, history) => api.post(`/admin/bots/${id}/test`, { message, history }).then(r => r.data),
+  resetCounter: id => api.delete(`/admin/bots/${id}/reset`).then(r => r.data),
+  clearConversations: id => api.delete(`/admin/bots/${id}/conversations`).then(r => r.data),
+};
+
 export default api;
