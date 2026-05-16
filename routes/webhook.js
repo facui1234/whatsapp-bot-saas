@@ -6,7 +6,19 @@ const Bot = require('../models/Bot');
 const Conversation = require('../models/Conversation');
 const MessageHistory = require('../models/MessageHistory');
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+// Lazy client — picks up the current ANTHROPIC_API_KEY on each call so
+// Settings changes take effect without restarting the server.
+let anthropicClient = null;
+let cachedKey = null;
+function getAnthropic() {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) throw new Error('ANTHROPIC_API_KEY no configurada');
+  if (!anthropicClient || cachedKey !== key) {
+    anthropicClient = new Anthropic({ apiKey: key });
+    cachedKey = key;
+  }
+  return anthropicClient;
+}
 
 const LIMIT_MESSAGE = 'Has alcanzado tu límite de mensajes del plan actual. Contactanos para hacer un upgrade y seguir disfrutando del servicio. 🚀';
 const MAX_HISTORY = 10;
@@ -14,7 +26,7 @@ const MAX_RETRIES = 2;
 
 async function callClaude(messages, systemPrompt, retries = 0) {
   try {
-    const response = await anthropic.messages.create({
+    const response = await getAnthropic().messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       system: systemPrompt,

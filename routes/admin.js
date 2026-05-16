@@ -6,7 +6,19 @@ const Bot = require('../models/Bot');
 const Conversation = require('../models/Conversation');
 const MessageHistory = require('../models/MessageHistory');
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+// Lazy client — instantiated on demand so changes to ANTHROPIC_API_KEY
+// (e.g. from the Settings window) take effect without restarting the app.
+let anthropicClient = null;
+let cachedKey = null;
+function getAnthropic() {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) throw new Error('ANTHROPIC_API_KEY no configurada. Abrí Archivo → Configuración y guardá tu clave.');
+  if (!anthropicClient || cachedKey !== key) {
+    anthropicClient = new Anthropic({ apiKey: key });
+    cachedKey = key;
+  }
+  return anthropicClient;
+}
 
 // GET /api/admin/health — detailed system status
 router.get('/health', async (req, res) => {
@@ -27,7 +39,7 @@ router.get('/health', async (req, res) => {
   status.claude.configured = Boolean(process.env.ANTHROPIC_API_KEY?.startsWith('sk-ant-'));
   if (status.claude.configured) {
     try {
-      await anthropic.messages.create({
+      await getAnthropic().messages.create({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 5,
         messages: [{ role: 'user', content: 'ping' }],
@@ -121,7 +133,7 @@ router.post('/bots/:id/test', async (req, res) => {
       { role: 'user', content: message.trim() },
     ];
 
-    const response = await anthropic.messages.create({
+    const response = await getAnthropic().messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       system: systemPrompt,
