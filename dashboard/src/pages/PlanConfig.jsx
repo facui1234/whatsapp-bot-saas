@@ -9,7 +9,7 @@ const PLANS = [
   {
     id: 'basic',
     name: 'Básico',
-    price: 'Gratis',
+    price: '$59/mes',
     limit: '100 mensajes/mes',
     icon: Zap,
     color: 'border-gray-200',
@@ -19,7 +19,7 @@ const PLANS = [
   {
     id: 'pro',
     name: 'Pro',
-    price: '$29/mes',
+    price: '$199/mes',
     limit: '500 mensajes/mes',
     icon: Rocket,
     color: 'border-primary-500',
