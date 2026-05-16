@@ -22,6 +22,25 @@ export const templatesApi = {
   get: rubric => api.get(`/templates/${rubric}`).then(r => r.data),
 };
 
+export const clientsApi = {
+  list: params => api.get('/clients', { params }).then(r => r.data),
+  get: id => api.get(`/clients/${id}`).then(r => r.data),
+  create: data => api.post('/clients', data).then(r => r.data),
+  update: (id, data) => api.put(`/clients/${id}`, data).then(r => r.data),
+  delete: id => api.delete(`/clients/${id}`).then(r => r.data),
+  getBots: id => api.get(`/clients/${id}/bots`).then(r => r.data),
+  getInvoices: id => api.get(`/clients/${id}/invoices`).then(r => r.data),
+  generateInvoice: id => api.post(`/clients/${id}/invoice/generate`).then(r => r.data),
+  updateInvoiceStatus: (id, invoiceId, status) => api.put(`/clients/${id}/invoice/${invoiceId}/status`, { status }).then(r => r.data),
+  updatePlan: (id, plan) => api.put(`/clients/${id}/plan`, { plan }).then(r => r.data),
+  resetMonth: id => api.post(`/clients/${id}/reset-month`).then(r => r.data),
+};
+
+export const reportsApi = {
+  monthly: () => api.get('/reports/monthly').then(r => r.data),
+  monthlyCsvUrl: () => '/api/reports/monthly/csv',
+};
+
 export const adminApi = {
   health: () => api.get('/admin/health').then(r => r.data),
   stats: () => api.get('/admin/stats').then(r => r.data),

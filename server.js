@@ -9,6 +9,8 @@ const botsRouter = require('./routes/bots');
 const webhookRouter = require('./routes/webhook');
 const templatesRouter = require('./routes/templates');
 const adminRouter = require('./routes/admin');
+const clientsRouter = require('./routes/clients');
+const reportsRouter = require('./routes/reports');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,6 +25,8 @@ app.use(fileUpload({ limits: { fileSize: 5 * 1024 * 1024 } }));
 app.use('/api/bots', botsRouter);
 app.use('/api/templates', templatesRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/clients', clientsRouter);
+app.use('/api/reports', reportsRouter);
 app.use('/webhook', webhookRouter);
 
 // Serve dashboard in production or Electron

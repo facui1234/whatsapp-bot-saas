@@ -119,12 +119,25 @@ router.post('/whatsapp', async (req, res) => {
     conversation.lastMessageAt = new Date();
     await conversation.save();
 
-    // Increment message count
-    await Bot.findByIdAndUpdate(bot._id, { $inc: { messageCount: 1 } });
+    // Auto-reset monthly counters if month has changed
+    const currentMonthYear = new Date().toISOString().substring(0, 7);
+    if (bot.currentMonthYear !== currentMonthYear) {
+      await Bot.findByIdAndUpdate(bot._id, {
+        messageCountThisMonth: 0,
+        tokensUsedThisMonth: 0,
+        currentMonthYear,
+      });
+    }
+
+    // Increment message count (total + monthly) and tokens used this month
+    await Bot.findByIdAndUpdate(bot._id, {
+      $inc: { messageCount: 1, messageCountThisMonth: 1, tokensUsedThisMonth: tokensUsed },
+    });
 
     // Log to message history
     historyEntry = new MessageHistory({
       botId: bot._id,
+      ...(bot.clientId ? { clientId: bot.clientId } : {}),
       senderNumber,
       message: incomingMsg,
       response: replyText,

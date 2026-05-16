@@ -19,6 +19,10 @@ const botSchema = new mongoose.Schema({
   plan: { type: String, enum: ['basic', 'pro', 'enterprise'], default: 'basic' },
   messageCount: { type: Number, default: 0 },
   active: { type: Boolean, default: true },
+  clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', index: true },
+  messageCountThisMonth: { type: Number, default: 0 },
+  tokensUsedThisMonth: { type: Number, default: 0 },
+  currentMonthYear: { type: String, default: '' }, // "2025-05" — used to auto-reset monthly counters
 }, { timestamps: true });
 
 botSchema.virtual('planLimit').get(function () {
