@@ -41,6 +41,15 @@ export const reportsApi = {
   monthlyCsvUrl: () => '/api/reports/monthly/csv',
 };
 
+export const analyticsApi = {
+  summary:  params => api.get('/analytics/summary',  { params }).then(r => r.data),
+  hours:    params => api.get('/analytics/hours',    { params }).then(r => r.data),
+  days:     params => api.get('/analytics/days',     { params }).then(r => r.data),
+  daily:    params => api.get('/analytics/daily',    { params }).then(r => r.data),
+  keywords: params => api.get('/analytics/keywords', { params }).then(r => r.data),
+  bots:     params => api.get('/analytics/bots',     { params }).then(r => r.data),
+};
+
 export const adminApi = {
   health: () => api.get('/admin/health').then(r => r.data),
   stats: () => api.get('/admin/stats').then(r => r.data),

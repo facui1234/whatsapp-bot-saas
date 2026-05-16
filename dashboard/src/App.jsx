@@ -11,6 +11,7 @@ import ClientList from './pages/ClientList.jsx';
 import ClientForm from './pages/ClientForm.jsx';
 import ClientDetail from './pages/ClientDetail.jsx';
 import Invoices from './pages/Invoices.jsx';
+import Analytics from './pages/Analytics.jsx';
 
 function RequireAuth() {
   const auth = localStorage.getItem('auth');
@@ -41,6 +42,7 @@ export default function App() {
           <Route path="/bots/:id/edit" element={<BotForm />} />
           <Route path="/bots/:id/history" element={<ConversationHistory />} />
           <Route path="/history" element={<ConversationHistory />} />
+          <Route path="/analytics" element={<Analytics />} />
           <Route path="/invoices" element={<Invoices />} />
           <Route path="/plans" element={<PlanConfig />} />
           <Route path="/admin" element={<Admin />} />

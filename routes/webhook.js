@@ -5,6 +5,7 @@ const twilio = require('twilio');
 const Bot = require('../models/Bot');
 const Conversation = require('../models/Conversation');
 const MessageHistory = require('../models/MessageHistory');
+const MessageLog = require('../models/MessageLog');
 
 // Lazy client — picks up the current ANTHROPIC_API_KEY on each call so
 // Settings changes take effect without restarting the server.
@@ -145,6 +146,22 @@ router.post('/whatsapp', async (req, res) => {
       processingTime,
     });
     await historyEntry.save();
+
+    // Log to analytics
+    const now = new Date();
+    await MessageLog.create({
+      botId: bot._id,
+      ...(bot.clientId ? { clientId: bot.clientId } : {}),
+      senderNumber,
+      messageText: incomingMsg,
+      responseText: replyText,
+      tokensUsed,
+      timestamp: now,
+      hour: now.getHours(),
+      dayOfWeek: now.getDay(),
+      date: now.toISOString().substring(0, 10),
+      month: now.toISOString().substring(0, 7),
+    });
 
     console.log(`[webhook] Bot ${bot.name} | ${senderNumber} | ${tokensUsed} tokens | ${processingTime}ms`);
 

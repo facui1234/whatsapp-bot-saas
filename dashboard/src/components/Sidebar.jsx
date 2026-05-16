@@ -1,10 +1,11 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Bot, MessageSquare, CreditCard, LogOut, Zap, Terminal, Users, FileText, LayoutDashboard } from 'lucide-react';
+import { Bot, MessageSquare, CreditCard, LogOut, Zap, Terminal, Users, FileText, LayoutDashboard, BarChart2 } from 'lucide-react';
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/clients', icon: Users, label: 'Clientes' },
   { to: '/bots', icon: Bot, label: 'Mis Bots' },
+  { to: '/analytics', icon: BarChart2, label: 'Analytics' },
   { to: '/invoices', icon: FileText, label: 'Facturación' },
   { to: '/history', icon: MessageSquare, label: 'Conversaciones' },
   { to: '/plans', icon: CreditCard, label: 'Planes' },

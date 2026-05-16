@@ -11,6 +11,7 @@ const templatesRouter = require('./routes/templates');
 const adminRouter = require('./routes/admin');
 const clientsRouter = require('./routes/clients');
 const reportsRouter = require('./routes/reports');
+const analyticsRouter = require('./routes/analytics');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -27,6 +28,7 @@ app.use('/api/templates', templatesRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/clients', clientsRouter);
 app.use('/api/reports', reportsRouter);
+app.use('/api/analytics', analyticsRouter);
 app.use('/webhook', webhookRouter);
 
 // Serve dashboard in production or Electron
