@@ -53,6 +53,12 @@ function buildSystemPrompt(bot) {
     });
   }
 
+  if (bot.knowledgeBase?.enabled && bot.knowledgeBase?.content) {
+    prompt += '\n\n--- BASE DE CONOCIMIENTO (actualizada automáticamente desde la nube) ---\n';
+    prompt += bot.knowledgeBase.content;
+    prompt += '\n--- FIN BASE DE CONOCIMIENTO ---';
+  }
+
   return prompt;
 }
 

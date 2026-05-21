@@ -11,7 +11,8 @@ const templatesRouter = require('./routes/templates');
 const adminRouter = require('./routes/admin');
 const clientsRouter = require('./routes/clients');
 const reportsRouter = require('./routes/reports');
-const analyticsRouter = require('./routes/analytics');
+const analyticsRouter  = require('./routes/analytics');
+const knowledgeSync    = require('./services/knowledgeSync');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -52,6 +53,7 @@ async function start() {
   return new Promise((resolve, reject) => {
     const server = app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
+      knowledgeSync.start(60_000); // sync all enabled knowledge bases every minute
       resolve(server);
     });
     server.on('error', reject);
@@ -59,6 +61,7 @@ async function start() {
 }
 
 async function stop() {
+  knowledgeSync.stop();
   try { await mongoose.disconnect(); } catch {}
 }
 

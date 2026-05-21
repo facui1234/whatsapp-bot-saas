@@ -15,6 +15,8 @@ export const botsApi = {
   getConversations: id => api.get(`/bots/${id}/conversations`).then(r => r.data),
   uploadFaqs: (id, faqs) => api.post(`/bots/${id}/faqs`, { faqs }).then(r => r.data),
   updatePlan: (id, plan) => api.put(`/bots/${id}/plan`, { plan }).then(r => r.data),
+  updateKb:   (id, data) => api.put(`/bots/${id}/kb`, data).then(r => r.data),
+  syncKb:     id         => api.post(`/bots/${id}/kb/sync`).then(r => r.data),
 };
 
 export const templatesApi = {

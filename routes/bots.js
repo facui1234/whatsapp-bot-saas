@@ -3,6 +3,7 @@ const router = express.Router();
 const Bot = require('../models/Bot');
 const Conversation = require('../models/Conversation');
 const MessageHistory = require('../models/MessageHistory');
+const { syncBot } = require('../services/knowledgeSync');
 
 // GET /api/bots
 router.get('/', async (req, res) => {
@@ -118,6 +119,44 @@ router.post('/:id/faqs', async (req, res) => {
     res.json({ faqs: bot.faqs });
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+// PUT /api/bots/:id/kb  — configure knowledge base
+router.put('/:id/kb', async (req, res) => {
+  try {
+    const { enabled, sourceUrl, refreshIntervalMinutes } = req.body;
+    const bot = await Bot.findByIdAndUpdate(
+      req.params.id,
+      {
+        'knowledgeBase.enabled':                enabled  ?? false,
+        'knowledgeBase.sourceUrl':              sourceUrl ?? '',
+        'knowledgeBase.refreshIntervalMinutes': refreshIntervalMinutes ?? 1,
+        // Reset status when URL changes so it resyncs
+        ...(sourceUrl !== undefined && { 'knowledgeBase.status': 'idle', 'knowledgeBase.lastError': '' }),
+      },
+      { new: true }
+    );
+    if (!bot) return res.status(404).json({ error: 'Bot no encontrado' });
+    res.json(bot.knowledgeBase);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /api/bots/:id/kb/sync  — manual sync trigger
+router.post('/:id/kb/sync', async (req, res) => {
+  try {
+    const bot = await Bot.findById(req.params.id);
+    if (!bot) return res.status(404).json({ error: 'Bot no encontrado' });
+    if (!bot.knowledgeBase?.enabled || !bot.knowledgeBase?.sourceUrl) {
+      return res.status(400).json({ error: 'Base de conocimiento no configurada' });
+    }
+    await syncBot(bot);
+    const updated = await Bot.findById(req.params.id, { knowledgeBase: 1 });
+    res.json(updated.knowledgeBase);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

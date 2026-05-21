@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Upload, RefreshCw, CheckCircle, AlertTriangle, Clock, Database } from 'lucide-react';
 import { botsApi, templatesApi } from '../lib/api.js';
 import { useAsyncFn } from '../hooks/useApi.js';
 import { PageLoader } from '../components/LoadingSpinner.jsx';
@@ -18,6 +18,35 @@ const DEFAULT_FORM = {
   name: '', twilioNumber: '', rubric: '', systemPrompt: '', plan: 'basic', active: true,
 };
 
+const KB_INTERVALS = [
+  { value: 1,  label: 'Cada 1 minuto' },
+  { value: 5,  label: 'Cada 5 minutos' },
+  { value: 10, label: 'Cada 10 minutos' },
+  { value: 30, label: 'Cada 30 minutos' },
+  { value: 60, label: 'Cada hora' },
+];
+
+const DEFAULT_KB = { enabled: false, sourceUrl: '', refreshIntervalMinutes: 1, status: 'idle', lastFetched: null, lastError: '', content: '' };
+
+function KbStatusBadge({ status, lastFetched, lastError }) {
+  if (status === 'ok') return (
+    <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium">
+      <CheckCircle className="w-3.5 h-3.5" />
+      Sincronizado · {lastFetched ? new Date(lastFetched).toLocaleTimeString('es-AR') : ''}
+    </span>
+  );
+  if (status === 'error') return (
+    <span className="inline-flex items-center gap-1 text-xs text-red-500 font-medium" title={lastError}>
+      <AlertTriangle className="w-3.5 h-3.5" /> Error: {lastError?.substring(0, 60)}
+    </span>
+  );
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-gray-400">
+      <Clock className="w-3.5 h-3.5" /> Pendiente de primer sincronización
+    </span>
+  );
+}
+
 export default function BotForm() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -31,9 +60,13 @@ export default function BotForm() {
   const [loadingPage, setLoadingPage] = useState(isEdit);
   const [errors, setErrors] = useState({});
   const [successMsg, setSuccessMsg] = useState('');
+  const [kb, setKb] = useState(DEFAULT_KB);
+  const [kbMsg, setKbMsg] = useState('');
 
-  const saveBot = useAsyncFn(isEdit ? data => botsApi.update(id, data) : botsApi.create);
+  const saveBot  = useAsyncFn(isEdit ? data => botsApi.update(id, data) : botsApi.create);
   const saveFaqs = useAsyncFn(data => botsApi.uploadFaqs(isEdit ? id : null, data));
+  const syncKb   = useAsyncFn(() => botsApi.syncKb(id));
+  const saveKb   = useAsyncFn(data => botsApi.updateKb(id, data));
 
   useEffect(() => {
     templatesApi.list().then(list => {
@@ -51,8 +84,29 @@ export default function BotForm() {
         systemPrompt: bot.systemPrompt, plan: bot.plan, active: bot.active,
       });
       if (bot.faqs?.length) setFaqs(bot.faqs.length ? bot.faqs : [{ question: '', answer: '' }]);
+      if (bot.knowledgeBase) setKb({ ...DEFAULT_KB, ...bot.knowledgeBase });
     }).catch(() => navigate('/bots')).finally(() => setLoadingPage(false));
   }, [id, isEdit, navigate]);
+
+  const handleSaveKb = async () => {
+    try {
+      const updated = await saveKb.execute({ enabled: kb.enabled, sourceUrl: kb.sourceUrl, refreshIntervalMinutes: kb.refreshIntervalMinutes });
+      setKb(prev => ({ ...prev, ...updated }));
+      setKbMsg('Configuración guardada');
+      setTimeout(() => setKbMsg(''), 2500);
+    } catch {}
+  };
+
+  const handleSyncNow = async () => {
+    try {
+      const updated = await syncKb.execute();
+      setKb(prev => ({ ...prev, ...updated }));
+      setKbMsg('Sincronización completada');
+      setTimeout(() => setKbMsg(''), 2500);
+    } catch (err) {
+      setKb(prev => ({ ...prev, status: 'error', lastError: err.message }));
+    }
+  };
 
   const setField = (key, value) => {
     setForm(f => ({ ...f, [key]: value }));
@@ -273,6 +327,85 @@ export default function BotForm() {
               <p className="text-xs text-gray-400 mt-1">Formato: pregunta,respuesta (una por línea)</p>
             </div>
           )}
+        </div>
+
+        {/* Knowledge Base */}
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Database className="w-4 h-4 text-primary-500" />
+              <h2 className="text-base font-semibold text-gray-900">Base de conocimiento dinámica</h2>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <span className="text-xs text-gray-500">{kb.enabled ? 'Activada' : 'Desactivada'}</span>
+              <div className={`relative w-10 h-5 rounded-full transition-colors ${kb.enabled ? 'bg-primary-500' : 'bg-gray-300'}`}
+                onClick={() => setKb(k => ({ ...k, enabled: !k.enabled }))}>
+                <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${kb.enabled ? 'translate-x-5' : ''}`} />
+              </div>
+            </label>
+          </div>
+
+          <p className="text-xs text-gray-500 mb-4">
+            Vinculá el bot a un Google Doc, Google Sheet, SharePoint o cualquier URL pública. El contenido se inyecta automáticamente en el system prompt y se actualiza según el intervalo configurado.
+          </p>
+
+          <div className="space-y-3">
+            <div>
+              <label className="label">URL del documento</label>
+              <input
+                className="input text-sm font-mono"
+                placeholder="https://docs.google.com/document/d/... o cualquier URL pública"
+                value={kb.sourceUrl}
+                onChange={e => setKb(k => ({ ...k, sourceUrl: e.target.value }))}
+                disabled={!kb.enabled}
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Soporta: Google Docs, Google Sheets, Google Drive, SharePoint, OneDrive y cualquier URL que retorne texto plano o CSV.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <label className="label">Intervalo de actualización</label>
+                <select className="input text-sm" value={kb.refreshIntervalMinutes}
+                  onChange={e => setKb(k => ({ ...k, refreshIntervalMinutes: Number(e.target.value) }))}
+                  disabled={!kb.enabled}>
+                  {KB_INTERVALS.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}
+                </select>
+              </div>
+              {isEdit && (
+                <div className="pt-5">
+                  <button type="button" onClick={handleSyncNow}
+                    disabled={!kb.enabled || !kb.sourceUrl || syncKb.loading}
+                    className="btn-secondary flex items-center gap-2 text-sm py-2">
+                    <RefreshCw className={`w-4 h-4 ${syncKb.loading ? 'animate-spin' : ''}`} />
+                    Sincronizar ahora
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {isEdit && (
+              <div className="flex items-center justify-between pt-1">
+                <KbStatusBadge status={kb.status} lastFetched={kb.lastFetched} lastError={kb.lastError} />
+                {kb.content && (
+                  <span className="text-xs text-gray-400">{kb.content.length.toLocaleString()} chars cargados</span>
+                )}
+              </div>
+            )}
+
+            {kbMsg && <p className="text-xs text-green-600 font-medium">{kbMsg}</p>}
+            {saveKb.error && <p className="text-xs text-red-500">{saveKb.error}</p>}
+
+            {isEdit && (
+              <div className="flex justify-end pt-1">
+                <button type="button" onClick={handleSaveKb} disabled={saveKb.loading}
+                  className="btn-secondary text-sm py-1.5 px-4">
+                  {saveKb.loading ? 'Guardando...' : 'Guardar configuración KB'}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Actions */}
