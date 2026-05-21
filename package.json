@@ -45,6 +45,7 @@
       "server.js",
       "models/**/*",
       "routes/**/*",
+      "services/**/*",
       "dashboard/dist/**/*",
       "node_modules/**/*",
       "!node_modules/sharp/**/*",
