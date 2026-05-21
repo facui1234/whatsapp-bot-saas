@@ -1,27 +1,17 @@
 const Bot = require('../models/Bot');
 
-const MAX_CONTENT = 60000; // ~60k chars — safe for Claude context
+const MAX_CONTENT = 60000;
 
 function normalizeUrl(raw) {
   const url = raw.trim();
-
-  // Google Docs → plain-text export
-  const docId = url.match(/docs\.google\.com\/document\/d\/([a-zA-Z0-9_-]+)/);
-  if (docId) return `https://docs.google.com/document/d/${docId[1]}/export?format=txt`;
-
-  // Google Sheets → CSV export
-  const sheetId = url.match(/docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
-  if (sheetId) return `https://docs.google.com/spreadsheets/d/${sheetId[1]}/export?format=csv`;
-
-  // Google Drive file-view → direct download
-  const driveFile = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  const docId    = url.match(/docs\.google\.com\/document\/d\/([a-zA-Z0-9_-]+)/);
+  if (docId)    return `https://docs.google.com/document/d/${docId[1]}/export?format=txt`;
+  const sheetId  = url.match(/docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if (sheetId)  return `https://docs.google.com/spreadsheets/d/${sheetId[1]}/export?format=csv`;
+  const driveFile= url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
   if (driveFile) return `https://drive.google.com/uc?export=download&id=${driveFile[1]}`;
-
-  // Google Drive open/?id=
-  const driveOpen = url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
+  const driveOpen= url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
   if (driveOpen) return `https://drive.google.com/uc?export=download&id=${driveOpen[1]}`;
-
-  // SharePoint / OneDrive "download" links — pass through as-is
   return url;
 }
 
@@ -40,7 +30,6 @@ async function fetchContent(rawUrl) {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
     const text = await res.text();
-    // Strip HTML tags if the response looks like HTML
     const cleaned = text.startsWith('<!') || text.startsWith('<html')
       ? text.replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim()
       : text;
@@ -50,33 +39,56 @@ async function fetchContent(rawUrl) {
   }
 }
 
-async function syncBot(bot) {
-  if (!bot.knowledgeBase?.enabled || !bot.knowledgeBase?.sourceUrl) return;
+// Sync a single KB entry identified by its subdocument _id
+async function syncOneKb(botId, kbId) {
+  const bot = await Bot.findById(botId);
+  if (!bot) throw new Error('Bot no encontrado');
+
+  const kb = bot.knowledgeBases.find(k => k._id.toString() === kbId.toString());
+  if (!kb) throw new Error('KB no encontrada');
+  if (!kb.sourceUrl) throw new Error('URL no configurada');
+
   try {
-    const content = await fetchContent(bot.knowledgeBase.sourceUrl);
-    await Bot.findByIdAndUpdate(bot._id, {
-      'knowledgeBase.content':     content,
-      'knowledgeBase.lastFetched': new Date(),
-      'knowledgeBase.status':      'ok',
-      'knowledgeBase.lastError':   '',
-    });
-    console.log(`[kb-sync] ✓ ${bot.name} — ${content.length} chars`);
+    const content = await fetchContent(kb.sourceUrl);
+    await Bot.findOneAndUpdate(
+      { _id: botId, 'knowledgeBases._id': kbId },
+      { $set: {
+        'knowledgeBases.$.content':     content,
+        'knowledgeBases.$.lastFetched': new Date(),
+        'knowledgeBases.$.status':      'ok',
+        'knowledgeBases.$.lastError':   '',
+      }},
+    );
+    console.log(`[kb-sync] ✓ ${bot.name} / ${kb.name} — ${content.length} chars`);
   } catch (err) {
-    await Bot.findByIdAndUpdate(bot._id, {
-      'knowledgeBase.status':    'error',
-      'knowledgeBase.lastError': err.message,
-    });
-    console.error(`[kb-sync] ✗ ${bot.name} — ${err.message}`);
+    await Bot.findOneAndUpdate(
+      { _id: botId, 'knowledgeBases._id': kbId },
+      { $set: {
+        'knowledgeBases.$.status':    'error',
+        'knowledgeBases.$.lastError': err.message,
+      }},
+    );
+    console.error(`[kb-sync] ✗ ${bot.name} / ${kb.name} — ${err.message}`);
+    throw err;
   }
 }
 
+// Sync all enabled KBs for a bot (accepts plain object or Mongoose doc)
+async function syncBot(bot) {
+  const kbs = (bot.knowledgeBases || []).filter(kb => kb.enabled && kb.sourceUrl);
+  for (const kb of kbs) {
+    try {
+      await syncOneKb(bot._id.toString(), kb._id.toString());
+    } catch {} // already logged inside syncOneKb
+  }
+}
+
+// Global tick — runs every interval
 async function syncAll() {
   try {
-    const bots = await Bot.find({
-      'knowledgeBase.enabled':   true,
-      'knowledgeBase.sourceUrl': { $nin: ['', null] },
-    }).lean();
-    if (bots.length) await Promise.allSettled(bots.map(syncBot));
+    const bots = await Bot.find({ 'knowledgeBases.0': { $exists: true } }).lean();
+    const active = bots.filter(b => b.knowledgeBases.some(kb => kb.enabled && kb.sourceUrl));
+    if (active.length) await Promise.allSettled(active.map(syncBot));
   } catch (err) {
     console.error('[kb-sync] syncAll error:', err.message);
   }
@@ -86,7 +98,7 @@ let timer = null;
 
 function start(intervalMs = 60_000) {
   if (timer) return;
-  syncAll(); // immediate first run
+  syncAll();
   timer = setInterval(syncAll, intervalMs);
   console.log(`[kb-sync] Started — interval ${intervalMs / 1000}s`);
 }
@@ -95,4 +107,4 @@ function stop() {
   if (timer) { clearInterval(timer); timer = null; }
 }
 
-module.exports = { start, stop, syncBot, syncAll };
+module.exports = { start, stop, syncBot, syncOneKb, syncAll };

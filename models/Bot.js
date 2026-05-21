@@ -23,15 +23,16 @@ const botSchema = new mongoose.Schema({
   messageCountThisMonth: { type: Number, default: 0 },
   tokensUsedThisMonth: { type: Number, default: 0 },
   currentMonthYear: { type: String, default: '' },
-  knowledgeBase: {
-    enabled:                { type: Boolean, default: false },
+  knowledgeBases: [{
+    name:                   { type: String,  default: 'Base de conocimiento' },
+    enabled:                { type: Boolean, default: true },
     sourceUrl:              { type: String,  default: '' },
     content:                { type: String,  default: '' },
     lastFetched:            { type: Date },
     lastError:              { type: String,  default: '' },
     status:                 { type: String,  enum: ['idle', 'ok', 'error'], default: 'idle' },
     refreshIntervalMinutes: { type: Number,  default: 1, min: 1, max: 60 },
-  },
+  }],
 }, { timestamps: true });
 
 botSchema.virtual('planLimit').get(function () {

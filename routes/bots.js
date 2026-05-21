@@ -3,7 +3,7 @@ const router = express.Router();
 const Bot = require('../models/Bot');
 const Conversation = require('../models/Conversation');
 const MessageHistory = require('../models/MessageHistory');
-const { syncBot } = require('../services/knowledgeSync');
+const { syncOneKb, syncBot } = require('../services/knowledgeSync');
 
 // GET /api/bots
 router.get('/', async (req, res) => {
@@ -41,13 +41,33 @@ router.get('/:id', async (req, res) => {
 // PUT /api/bots/:id
 router.put('/:id', async (req, res) => {
   try {
-    const { name, twilioNumber, rubric, systemPrompt, faqs, plan, active } = req.body;
-    const bot = await Bot.findByIdAndUpdate(
-      req.params.id,
-      { name, twilioNumber, rubric, systemPrompt, faqs, plan, active },
-      { new: true, runValidators: true }
-    );
+    const { name, twilioNumber, rubric, systemPrompt, faqs, plan, active, knowledgeBases } = req.body;
+    const bot = await Bot.findById(req.params.id);
     if (!bot) return res.status(404).json({ error: 'Bot no encontrado' });
+
+    Object.assign(bot, { name, twilioNumber, rubric, systemPrompt, faqs, plan, active });
+
+    // Merge incoming knowledgeBases with existing ones (preserve cached content when URL unchanged)
+    if (Array.isArray(knowledgeBases)) {
+      const existingMap = new Map(bot.knowledgeBases.map(kb => [kb._id.toString(), kb]));
+      bot.knowledgeBases = knowledgeBases.map(incoming => {
+        const existing = incoming._id ? existingMap.get(String(incoming._id)) : null;
+        const urlChanged = existing && existing.sourceUrl !== incoming.sourceUrl;
+        return {
+          _id:                    existing?._id,
+          name:                   incoming.name || 'Base de conocimiento',
+          enabled:                incoming.enabled ?? true,
+          sourceUrl:              incoming.sourceUrl || '',
+          refreshIntervalMinutes: incoming.refreshIntervalMinutes ?? 1,
+          content:     (existing && !urlChanged) ? existing.content     : '',
+          lastFetched: (existing && !urlChanged) ? existing.lastFetched : null,
+          lastError:   (existing && !urlChanged) ? existing.lastError   : '',
+          status:      (existing && !urlChanged) ? existing.status      : 'idle',
+        };
+      });
+    }
+
+    await bot.save();
     res.json(bot);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -73,13 +93,11 @@ router.get('/:id/history', async (req, res) => {
     const { page = 1, limit = 20, sender } = req.query;
     const filter = { botId: req.params.id };
     if (sender) filter.senderNumber = sender;
-
     const total = await MessageHistory.countDocuments(filter);
     const history = await MessageHistory.find(filter)
       .sort({ timestamp: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit));
-
     res.json({ history, total, page: Number(page), pages: Math.ceil(total / limit) });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -103,8 +121,6 @@ router.post('/:id/faqs', async (req, res) => {
   try {
     const bot = await Bot.findById(req.params.id);
     if (!bot) return res.status(404).json({ error: 'Bot no encontrado' });
-
-    // Accept array of {question, answer} or CSV text
     if (Array.isArray(req.body.faqs)) {
       bot.faqs = req.body.faqs;
     } else if (req.body.csv) {
@@ -114,7 +130,6 @@ router.post('/:id/faqs', async (req, res) => {
         return { question: question?.trim(), answer: rest.join(',').trim() };
       }).filter(f => f.question && f.answer);
     }
-
     await bot.save();
     res.json({ faqs: bot.faqs });
   } catch (err) {
@@ -122,39 +137,25 @@ router.post('/:id/faqs', async (req, res) => {
   }
 });
 
-// PUT /api/bots/:id/kb  — configure knowledge base
-router.put('/:id/kb', async (req, res) => {
+// POST /api/bots/:id/kb/:kbId/sync  — sync one KB
+router.post('/:id/kb/:kbId/sync', async (req, res) => {
   try {
-    const { enabled, sourceUrl, refreshIntervalMinutes } = req.body;
-    const bot = await Bot.findByIdAndUpdate(
-      req.params.id,
-      {
-        'knowledgeBase.enabled':                enabled  ?? false,
-        'knowledgeBase.sourceUrl':              sourceUrl ?? '',
-        'knowledgeBase.refreshIntervalMinutes': refreshIntervalMinutes ?? 1,
-        // Reset status when URL changes so it resyncs
-        ...(sourceUrl !== undefined && { 'knowledgeBase.status': 'idle', 'knowledgeBase.lastError': '' }),
-      },
-      { new: true }
-    );
-    if (!bot) return res.status(404).json({ error: 'Bot no encontrado' });
-    res.json(bot.knowledgeBase);
+    await syncOneKb(req.params.id, req.params.kbId);
+    const updated = await Bot.findById(req.params.id, { knowledgeBases: 1 });
+    res.json(updated.knowledgeBases);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// POST /api/bots/:id/kb/sync  — manual sync trigger
+// POST /api/bots/:id/kb/sync  — sync all KBs for this bot
 router.post('/:id/kb/sync', async (req, res) => {
   try {
     const bot = await Bot.findById(req.params.id);
     if (!bot) return res.status(404).json({ error: 'Bot no encontrado' });
-    if (!bot.knowledgeBase?.enabled || !bot.knowledgeBase?.sourceUrl) {
-      return res.status(400).json({ error: 'Base de conocimiento no configurada' });
-    }
     await syncBot(bot);
-    const updated = await Bot.findById(req.params.id, { knowledgeBase: 1 });
-    res.json(updated.knowledgeBase);
+    const updated = await Bot.findById(req.params.id, { knowledgeBases: 1 });
+    res.json(updated.knowledgeBases);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
