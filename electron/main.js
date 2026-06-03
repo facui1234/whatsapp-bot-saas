@@ -94,10 +94,9 @@ async function startBackendServer() {
   const settings = loadSettings();
 
   // Inject env vars from saved settings (user can set these via Settings window)
-  if (settings.ANTHROPIC_API_KEY) process.env.ANTHROPIC_API_KEY = settings.ANTHROPIC_API_KEY;
-  if (settings.TWILIO_ACCOUNT_SID) process.env.TWILIO_ACCOUNT_SID = settings.TWILIO_ACCOUNT_SID;
-  if (settings.TWILIO_AUTH_TOKEN) process.env.TWILIO_AUTH_TOKEN = settings.TWILIO_AUTH_TOKEN;
-  if (settings.TWILIO_PHONE_NUMBER) process.env.TWILIO_PHONE_NUMBER = settings.TWILIO_PHONE_NUMBER;
+  if (settings.ANTHROPIC_API_KEY)  process.env.ANTHROPIC_API_KEY  = settings.ANTHROPIC_API_KEY;
+  if (settings.EVOLUTION_API_URL)  process.env.EVOLUTION_API_URL  = settings.EVOLUTION_API_URL;
+  if (settings.EVOLUTION_API_KEY)  process.env.EVOLUTION_API_KEY  = settings.EVOLUTION_API_KEY;
 
   process.env.PORT = String(PORT);
   process.env.DASHBOARD_DIST = path.join(getResourcePath(), 'dashboard', 'dist');
@@ -240,10 +239,9 @@ ipcMain.handle('settings:load', () => loadSettings());
 ipcMain.handle('settings:save', (_, data) => {
   saveSettings(data);
   // Hot-reload env so changes take effect without restart
-  if (data.ANTHROPIC_API_KEY) process.env.ANTHROPIC_API_KEY = data.ANTHROPIC_API_KEY;
-  if (data.TWILIO_ACCOUNT_SID) process.env.TWILIO_ACCOUNT_SID = data.TWILIO_ACCOUNT_SID;
-  if (data.TWILIO_AUTH_TOKEN) process.env.TWILIO_AUTH_TOKEN = data.TWILIO_AUTH_TOKEN;
-  if (data.TWILIO_PHONE_NUMBER) process.env.TWILIO_PHONE_NUMBER = data.TWILIO_PHONE_NUMBER;
+  if (data.ANTHROPIC_API_KEY)  process.env.ANTHROPIC_API_KEY  = data.ANTHROPIC_API_KEY;
+  if (data.EVOLUTION_API_URL)  process.env.EVOLUTION_API_URL  = data.EVOLUTION_API_URL;
+  if (data.EVOLUTION_API_KEY)  process.env.EVOLUTION_API_KEY  = data.EVOLUTION_API_KEY;
   return { ok: true };
 });
 

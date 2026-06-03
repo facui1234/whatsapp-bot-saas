@@ -1,28 +1,29 @@
 const mongoose = require('mongoose');
 
 const PLANS = {
-  basic: { name: 'Básico', messageLimit: 100 },
-  pro: { name: 'Pro', messageLimit: 500 },
-  enterprise: { name: 'Enterprise', messageLimit: Infinity },
+  basic:      { name: 'Básico',    messageLimit: 100 },
+  pro:        { name: 'Pro',       messageLimit: 500 },
+  enterprise: { name: 'Enterprise',messageLimit: Infinity },
 };
 
 const botSchema = new mongoose.Schema({
-  name: { type: String, required: true, trim: true },
-  twilioNumber: { type: String, required: true, trim: true },
+  name:                  { type: String, required: true, trim: true },
+  phoneNumber:           { type: String, default: '', index: true },
+  evolutionInstanceName: { type: String, default: '' },
   rubric: {
     type: String,
     enum: ['restaurante', 'clinica', 'ecommerce', 'servicios', 'otro'],
     required: true,
   },
-  systemPrompt: { type: String, required: true },
-  faqs: [{ question: String, answer: String }],
-  plan: { type: String, enum: ['basic', 'pro', 'enterprise'], default: 'basic' },
-  messageCount: { type: Number, default: 0 },
-  active: { type: Boolean, default: true },
-  clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', index: true },
+  systemPrompt:          { type: String, required: true },
+  faqs:                  [{ question: String, answer: String }],
+  plan:                  { type: String, enum: ['basic', 'pro', 'enterprise'], default: 'basic' },
+  status:                { type: String, enum: ['active', 'paused'], default: 'active' },
+  messageCount:          { type: Number, default: 0 },
+  clientId:              { type: mongoose.Schema.Types.ObjectId, ref: 'Client', index: true },
   messageCountThisMonth: { type: Number, default: 0 },
-  tokensUsedThisMonth: { type: Number, default: 0 },
-  currentMonthYear: { type: String, default: '' },
+  tokensUsedThisMonth:   { type: Number, default: 0 },
+  currentMonthYear:      { type: String, default: '' },
   knowledgeBases: [{
     name:                   { type: String,  default: 'Base de conocimiento' },
     enabled:                { type: Boolean, default: true },

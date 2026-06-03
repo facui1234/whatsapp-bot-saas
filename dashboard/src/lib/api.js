@@ -6,17 +6,21 @@ const api = axios.create({
 });
 
 export const botsApi = {
-  list: () => api.get('/bots').then(r => r.data),
-  get: id => api.get(`/bots/${id}`).then(r => r.data),
-  create: data => api.post('/bots', data).then(r => r.data),
-  update: (id, data) => api.put(`/bots/${id}`, data).then(r => r.data),
-  delete: id => api.delete(`/bots/${id}`).then(r => r.data),
-  getHistory: (id, params) => api.get(`/bots/${id}/history`, { params }).then(r => r.data),
-  getConversations: id => api.get(`/bots/${id}/conversations`).then(r => r.data),
-  uploadFaqs: (id, faqs) => api.post(`/bots/${id}/faqs`, { faqs }).then(r => r.data),
-  updatePlan:  (id, plan)        => api.put(`/bots/${id}/plan`, { plan }).then(r => r.data),
-  syncOneKb:   (id, kbId)       => api.post(`/bots/${id}/kb/${kbId}/sync`).then(r => r.data),
-  syncAllKbs:  id               => api.post(`/bots/${id}/kb/sync`).then(r => r.data),
+  list:           ()             => api.get('/bots').then(r => r.data),
+  get:            id             => api.get(`/bots/${id}`).then(r => r.data),
+  create:         data           => api.post('/bots', data).then(r => r.data),
+  update:         (id, data)     => api.put(`/bots/${id}`, data).then(r => r.data),
+  delete:         id             => api.delete(`/bots/${id}`).then(r => r.data),
+  pause:          id             => api.post(`/bots/${id}/pause`).then(r => r.data),
+  resume:         id             => api.post(`/bots/${id}/resume`).then(r => r.data),
+  assignNumber:   (id, phone)    => api.post(`/bots/${id}/assign-number`, { phoneNumber: phone }).then(r => r.data),
+  getQr:          id             => api.get(`/bots/${id}/qr`).then(r => r.data),
+  getHistory:     (id, params)   => api.get(`/bots/${id}/history`, { params }).then(r => r.data),
+  getConversations: id           => api.get(`/bots/${id}/conversations`).then(r => r.data),
+  uploadFaqs:     (id, faqs)     => api.post(`/bots/${id}/faqs`, { faqs }).then(r => r.data),
+  updatePlan:     (id, plan)     => api.put(`/bots/${id}/plan`, { plan }).then(r => r.data),
+  syncOneKb:      (id, kbId)     => api.post(`/bots/${id}/kb/${kbId}/sync`).then(r => r.data),
+  syncAllKbs:     id             => api.post(`/bots/${id}/kb/sync`).then(r => r.data),
 };
 
 export const templatesApi = {

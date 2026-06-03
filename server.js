@@ -30,7 +30,7 @@ app.use('/api/admin', adminRouter);
 app.use('/api/clients', clientsRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/analytics', analyticsRouter);
-app.use('/webhook', webhookRouter);
+app.use('/webhook', webhookRouter);  // /webhook/evolution ← Evolution API endpoint
 
 // Serve dashboard in production or Electron
 const distPath = process.env.DASHBOARD_DIST || path.join(__dirname, 'dashboard/dist');

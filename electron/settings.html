@@ -7,96 +7,30 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #f9fafb;
-      color: #111827;
-      padding: 28px;
-      font-size: 14px;
+      background: #f9fafb; color: #111827; padding: 28px; font-size: 14px;
     }
-    h1 {
-      font-size: 18px;
-      margin-bottom: 4px;
-    }
-    .subtitle {
-      color: #6b7280;
-      font-size: 13px;
-      margin-bottom: 24px;
-    }
-    .section {
-      background: white;
-      border: 1px solid #e5e7eb;
-      border-radius: 10px;
-      padding: 20px;
-      margin-bottom: 16px;
-    }
-    .section h2 {
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 4px;
-      color: #1f2937;
-    }
-    .section .help {
-      font-size: 12px;
-      color: #6b7280;
-      margin-bottom: 14px;
-    }
-    label {
-      display: block;
-      font-size: 12px;
-      font-weight: 500;
-      color: #374151;
-      margin-bottom: 6px;
-      margin-top: 12px;
-    }
+    h1 { font-size: 18px; margin-bottom: 4px; }
+    .subtitle { color: #6b7280; font-size: 13px; margin-bottom: 24px; }
+    .section { background: white; border: 1px solid #e5e7eb; border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+    .section h2 { font-size: 14px; font-weight: 600; margin-bottom: 4px; color: #1f2937; }
+    .section .help { font-size: 12px; color: #6b7280; margin-bottom: 14px; }
+    label { display: block; font-size: 12px; font-weight: 500; color: #374151; margin-bottom: 6px; margin-top: 12px; }
     label:first-of-type { margin-top: 0; }
     input[type="text"], input[type="password"] {
-      width: 100%;
-      padding: 8px 10px;
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
-      font-size: 13px;
-      font-family: 'SF Mono', Menlo, monospace;
-      outline: none;
-      transition: border-color 0.15s;
+      width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px;
+      font-size: 13px; font-family: 'SF Mono', Menlo, monospace; outline: none; transition: border-color 0.15s;
     }
-    input:focus {
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
-    }
-    .actions {
-      display: flex;
-      gap: 10px;
-      justify-content: flex-end;
-      margin-top: 4px;
-    }
-    button {
-      padding: 8px 18px;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      border: none;
-      transition: all 0.15s;
-    }
-    .btn-primary {
-      background: #3b82f6;
-      color: white;
-    }
+    input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+    .actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
+    button { padding: 8px 18px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; }
+    .btn-primary { background: #3b82f6; color: white; }
     .btn-primary:hover { background: #2563eb; }
-    .btn-secondary {
-      background: white;
-      color: #374151;
-      border: 1px solid #d1d5db;
-    }
+    .btn-secondary { background: white; color: #374151; border: 1px solid #d1d5db; }
     .btn-secondary:hover { background: #f3f4f6; }
-    .saved {
-      color: #059669;
-      font-size: 12px;
-      margin-right: auto;
-      align-self: center;
-      display: none;
-    }
+    .saved { color: #059669; font-size: 12px; margin-right: auto; align-self: center; display: none; }
     .saved.show { display: block; }
     a { color: #3b82f6; }
+    .chip { display: inline-block; background: #fef3c7; color: #92400e; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; margin-left: 6px; }
   </style>
 </head>
 <body>
@@ -105,22 +39,21 @@
 
   <div class="section">
     <h2>Anthropic Claude API</h2>
-    <p class="help">
-      Obtené tu API key en <a href="https://console.anthropic.com" onclick="event.preventDefault();require('electron').shell.openExternal('https://console.anthropic.com')">console.anthropic.com</a>
-    </p>
+    <p class="help">Obtené tu API key en <a href="#" onclick="event.preventDefault();require('electron').shell.openExternal('https://console.anthropic.com')">console.anthropic.com</a></p>
     <label>ANTHROPIC_API_KEY</label>
     <input type="password" id="ANTHROPIC_API_KEY" placeholder="sk-ant-...">
   </div>
 
   <div class="section">
-    <h2>Twilio (WhatsApp)</h2>
-    <p class="help">Credenciales de tu cuenta Twilio para recibir webhooks de WhatsApp</p>
-    <label>TWILIO_ACCOUNT_SID</label>
-    <input type="text" id="TWILIO_ACCOUNT_SID" placeholder="AC...">
-    <label>TWILIO_AUTH_TOKEN</label>
-    <input type="password" id="TWILIO_AUTH_TOKEN" placeholder="token">
-    <label>TWILIO_PHONE_NUMBER</label>
-    <input type="text" id="TWILIO_PHONE_NUMBER" placeholder="whatsapp:+14155238886">
+    <h2>Evolution API <span class="chip">WhatsApp</span></h2>
+    <p class="help">
+      Conectá tu servidor Evolution API para enviar y recibir mensajes de WhatsApp.
+      URL del webhook a configurar en Evolution: <strong>[esta app]/webhook/evolution</strong>
+    </p>
+    <label>EVOLUTION_API_URL</label>
+    <input type="text" id="EVOLUTION_API_URL" placeholder="https://tu-servidor-evolution.com">
+    <label>EVOLUTION_API_KEY</label>
+    <input type="password" id="EVOLUTION_API_KEY" placeholder="tu-api-key-de-evolution">
   </div>
 
   <div class="actions">
@@ -130,7 +63,7 @@
   </div>
 
   <script>
-    const fields = ['ANTHROPIC_API_KEY', 'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_PHONE_NUMBER'];
+    const fields = ['ANTHROPIC_API_KEY', 'EVOLUTION_API_URL', 'EVOLUTION_API_KEY'];
 
     async function load() {
       const settings = await window.whatsbot.loadSettings();

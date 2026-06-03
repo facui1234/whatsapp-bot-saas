@@ -14,7 +14,7 @@ const RUBRICS = [
   { value: 'otro',        label: 'Otro' },
 ];
 
-const DEFAULT_FORM = { name: '', twilioNumber: '', rubric: '', systemPrompt: '', plan: 'basic', active: true };
+const DEFAULT_FORM = { name: '', rubric: '', systemPrompt: '', plan: 'basic' };
 
 const KB_INTERVALS = [
   { value: 1,  label: 'Cada 1 minuto'  },
@@ -136,7 +136,6 @@ export default function BotForm() {
   const validate = () => {
     const e = {};
     if (!form.name.trim()) e.name = 'El nombre es requerido';
-    if (!form.twilioNumber.trim()) e.twilioNumber = 'El número Twilio es requerido';
     if (!form.rubric) e.rubric = 'Selecciona un rubro';
     if (!form.systemPrompt.trim()) e.systemPrompt = 'El system prompt es requerido';
     setErrors(e);
@@ -202,12 +201,6 @@ export default function BotForm() {
               <input className={`input ${errors.name ? 'border-red-400' : ''}`} placeholder="Ej: Bot Restaurante El Fogón"
                 value={form.name} onChange={e => setField('name', e.target.value)} />
               {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
-            </div>
-            <div>
-              <label className="label">Número Twilio *</label>
-              <input className={`input ${errors.twilioNumber ? 'border-red-400' : ''}`} placeholder="whatsapp:+14155238886"
-                value={form.twilioNumber} onChange={e => setField('twilioNumber', e.target.value)} />
-              {errors.twilioNumber && <p className="text-red-500 text-xs mt-1">{errors.twilioNumber}</p>}
             </div>
             <div>
               <label className="label">Rubro *</label>

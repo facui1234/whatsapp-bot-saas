@@ -1,14 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const Anthropic = require('@anthropic-ai/sdk');
-const twilio = require('twilio');
 const Bot = require('../models/Bot');
 const Conversation = require('../models/Conversation');
 const MessageHistory = require('../models/MessageHistory');
 const MessageLog = require('../models/MessageLog');
+const { sendText, parseRemoteJid, extractText } = require('../services/evolutionApi');
 
-// Lazy client — picks up the current ANTHROPIC_API_KEY on each call so
-// Settings changes take effect without restarting the server.
+// Lazy Claude client — picks up current API key on each call
 let anthropicClient = null;
 let cachedKey = null;
 function getAnthropic() {
@@ -21,19 +20,18 @@ function getAnthropic() {
   return anthropicClient;
 }
 
-const LIMIT_MESSAGE = 'Has alcanzado tu límite de mensajes del plan actual. Contactanos para hacer un upgrade y seguir disfrutando del servicio. 🚀';
+const LIMIT_MESSAGE = 'Has alcanzado tu límite de mensajes del plan actual. Contactanos para hacer un upgrade. 🚀';
 const MAX_HISTORY = 10;
 const MAX_RETRIES = 2;
 
 async function callClaude(messages, systemPrompt, retries = 0) {
   try {
-    const response = await getAnthropic().messages.create({
+    return await getAnthropic().messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       system: systemPrompt,
       messages,
     });
-    return response;
   } catch (err) {
     if (retries < MAX_RETRIES) {
       await new Promise(r => setTimeout(r, 1000 * (retries + 1)));
@@ -45,143 +43,119 @@ async function callClaude(messages, systemPrompt, retries = 0) {
 
 function buildSystemPrompt(bot) {
   let prompt = bot.systemPrompt;
-
-  if (bot.faqs && bot.faqs.length > 0) {
+  if (bot.faqs?.length) {
     prompt += '\n\n--- PREGUNTAS FRECUENTES ---\n';
-    bot.faqs.forEach(faq => {
-      prompt += `P: ${faq.question}\nR: ${faq.answer}\n\n`;
-    });
+    bot.faqs.forEach(f => { prompt += `P: ${f.question}\nR: ${f.answer}\n\n`; });
   }
-
   if (bot.knowledgeBases?.length) {
     for (const kb of bot.knowledgeBases) {
       if (kb.enabled && kb.content) {
-        prompt += `\n\n--- BASE DE CONOCIMIENTO: ${kb.name} ---\n`;
-        prompt += kb.content;
-        prompt += `\n--- FIN: ${kb.name} ---`;
+        prompt += `\n\n--- BASE DE CONOCIMIENTO: ${kb.name} ---\n${kb.content}\n--- FIN: ${kb.name} ---`;
       }
     }
   }
-
   return prompt;
 }
 
-router.post('/whatsapp', async (req, res) => {
-  const twiml = new twilio.twiml.MessagingResponse();
+// ── Evolution API webhook ─────────────────────────────────────────────────────
+router.post('/evolution', async (req, res) => {
+  // Respond 200 immediately so Evolution API doesn't retry
+  res.sendStatus(200);
+
+  const { event, instance, data } = req.body ?? {};
+
+  // Only handle incoming user messages
+  if (event !== 'messages.upsert') return;
+  if (data?.key?.fromMe) return;
+  const remoteJid = data?.key?.remoteJid ?? '';
+  if (!remoteJid.endsWith('@s.whatsapp.net')) return; // skip groups
+
+  const incomingMsg = extractText(data);
+  const senderNumber = parseRemoteJid(remoteJid);
+  if (!incomingMsg || !senderNumber) return;
+
   const startTime = Date.now();
-
-  const incomingMsg = req.body.Body?.trim();
-  const senderNumber = req.body.From;
-  const toNumber = req.body.To;
-
-  if (!incomingMsg || !senderNumber) {
-    res.type('text/xml').send(twiml.toString());
-    return;
-  }
-
   let bot = null;
-  let historyEntry = null;
 
   try {
-    // Find bot by Twilio number
-    bot = await Bot.findOne({ twilioNumber: toNumber, active: true });
+    bot = await Bot.findOne({ evolutionInstanceName: instance, status: 'active' });
     if (!bot) {
-      console.warn(`[webhook] No active bot found for number: ${toNumber}`);
-      res.type('text/xml').send(twiml.toString());
+      console.warn(`[webhook] No active bot for instance: ${instance}`);
       return;
     }
 
-    // Check plan limit
     if (bot.hasReachedLimit()) {
-      console.log(`[webhook] Bot ${bot._id} reached limit (${bot.messageCount}/${bot.planLimit})`);
-      twiml.message(LIMIT_MESSAGE);
-      res.type('text/xml').send(twiml.toString());
+      console.log(`[webhook] Bot ${bot._id} reached limit`);
+      await sendText(instance, senderNumber, LIMIT_MESSAGE).catch(() => {});
       return;
     }
 
     // Load or create conversation
     let conversation = await Conversation.findOne({ botId: bot._id, senderNumber });
-    if (!conversation) {
-      conversation = new Conversation({ botId: bot._id, senderNumber, messages: [] });
-    }
+    if (!conversation) conversation = new Conversation({ botId: bot._id, senderNumber, messages: [] });
 
-    // Keep last MAX_HISTORY messages for context
     const recentMessages = conversation.messages.slice(-MAX_HISTORY);
     const claudeMessages = [
       ...recentMessages.map(m => ({ role: m.role, content: m.content })),
       { role: 'user', content: incomingMsg },
     ];
 
-    const systemPrompt = buildSystemPrompt(bot);
-
-    // Call Claude (with retries)
-    const claudeResponse = await callClaude(claudeMessages, systemPrompt);
+    const claudeResponse = await callClaude(claudeMessages, buildSystemPrompt(bot));
     const replyText = claudeResponse.content[0]?.text ?? 'Lo siento, no pude procesar tu mensaje.';
     const tokensUsed = (claudeResponse.usage?.input_tokens ?? 0) + (claudeResponse.usage?.output_tokens ?? 0);
     const processingTime = Date.now() - startTime;
 
-    // Update conversation history
+    // Update conversation
     conversation.messages.push({ role: 'user', content: incomingMsg });
     conversation.messages.push({ role: 'assistant', content: replyText });
-    // Trim to keep only last MAX_HISTORY * 2 messages (user + assistant pairs)
     if (conversation.messages.length > MAX_HISTORY * 2) {
       conversation.messages = conversation.messages.slice(-(MAX_HISTORY * 2));
     }
     conversation.lastMessageAt = new Date();
     await conversation.save();
 
-    // Auto-reset monthly counters if month has changed
+    // Auto-reset monthly counters
     const currentMonthYear = new Date().toISOString().substring(0, 7);
     if (bot.currentMonthYear !== currentMonthYear) {
-      await Bot.findByIdAndUpdate(bot._id, {
-        messageCountThisMonth: 0,
-        tokensUsedThisMonth: 0,
-        currentMonthYear,
-      });
+      await Bot.findByIdAndUpdate(bot._id, { messageCountThisMonth: 0, tokensUsedThisMonth: 0, currentMonthYear });
     }
-
-    // Increment message count (total + monthly) and tokens used this month
     await Bot.findByIdAndUpdate(bot._id, {
       $inc: { messageCount: 1, messageCountThisMonth: 1, tokensUsedThisMonth: tokensUsed },
     });
 
-    // Log to message history
-    historyEntry = new MessageHistory({
-      botId: bot._id,
-      ...(bot.clientId ? { clientId: bot.clientId } : {}),
-      senderNumber,
-      message: incomingMsg,
-      response: replyText,
-      tokensUsed,
-      processingTime,
-    });
-    await historyEntry.save();
-
-    // Log to analytics
+    // Log to MessageHistory and MessageLog (analytics)
     const now = new Date();
-    await MessageLog.create({
-      botId: bot._id,
-      ...(bot.clientId ? { clientId: bot.clientId } : {}),
-      senderNumber,
-      messageText: incomingMsg,
-      responseText: replyText,
-      tokensUsed,
-      timestamp: now,
-      hour: now.getHours(),
-      dayOfWeek: now.getDay(),
-      date: now.toISOString().substring(0, 10),
-      month: now.toISOString().substring(0, 7),
-    });
+    await Promise.allSettled([
+      MessageHistory.create({
+        botId: bot._id,
+        ...(bot.clientId ? { clientId: bot.clientId } : {}),
+        senderNumber,
+        message: incomingMsg,
+        response: replyText,
+        tokensUsed,
+        processingTime,
+      }),
+      MessageLog.create({
+        botId: bot._id,
+        ...(bot.clientId ? { clientId: bot.clientId } : {}),
+        senderNumber,
+        messageText: incomingMsg,
+        responseText: replyText,
+        tokensUsed,
+        timestamp: now,
+        hour: now.getHours(),
+        dayOfWeek: now.getDay(),
+        date: now.toISOString().substring(0, 10),
+        month: now.toISOString().substring(0, 7),
+      }),
+    ]);
 
-    console.log(`[webhook] Bot ${bot.name} | ${senderNumber} | ${tokensUsed} tokens | ${processingTime}ms`);
-
-    twiml.message(replyText);
-    res.type('text/xml').send(twiml.toString());
+    // Send reply via Evolution API
+    await sendText(instance, senderNumber, replyText);
+    console.log(`[webhook] ${bot.name} | ${senderNumber} | ${tokensUsed} tokens | ${processingTime}ms`);
 
   } catch (err) {
     console.error('[webhook] Error:', err.message);
-
-    // Log failed attempt
     if (bot) {
       await MessageHistory.create({
         botId: bot._id,
@@ -191,9 +165,6 @@ router.post('/whatsapp', async (req, res) => {
         processingTime: Date.now() - startTime,
       }).catch(() => {});
     }
-
-    twiml.message('Lo siento, estoy teniendo dificultades técnicas. Por favor intenta nuevamente en unos minutos.');
-    res.type('text/xml').send(twiml.toString());
   }
 });
 
