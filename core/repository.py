@@ -7,7 +7,7 @@ a SQL directamente ni a los dataclasses de reconciliación a mano.
 from __future__ import annotations
 
 import sqlite3
-from dataclasses import dataclass
+from datetime import date
 
 from core import db, matching, reconciliation as rec
 
@@ -131,18 +131,6 @@ def documentos_sin_imputar(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     ).fetchall()
 
 
-@dataclass
-class SugerenciaConDetalle:
-    entrega_id: int
-    proveedor: str
-    remito: str | None
-    contrato_oc: str | None
-    periodo_contable: str
-    volumen: float
-    metodo: str
-    confianza: float
-
-
 def sugerencias_para_documento(conn: sqlite3.Connection, documento_row: sqlite3.Row) -> matching.ResultadoMatch:
     doc = matching.DocumentoAMatchear(
         id=documento_row["id"], proveedor=documento_row["proveedor"], periodo_contable=None,
@@ -176,3 +164,78 @@ def aplicar_matches_automaticos(conn: sqlite3.Connection, usuario: str = db.USUA
             )
             creadas += 1
     return creadas
+
+
+# ---------------------------------------------------------------------------
+# Imputaciones manuales (bandeja de pendientes)
+# ---------------------------------------------------------------------------
+
+def monto_imputado_total(conn: sqlite3.Connection, documento_id: int) -> float:
+    fila = conn.execute(
+        "SELECT COALESCE(SUM(monto_imputado), 0) AS total FROM imputaciones WHERE documento_id = ?",
+        (documento_id,),
+    ).fetchone()
+    return fila["total"]
+
+
+def actualizar_estado_entrega(
+    conn: sqlite3.Connection, entrega_id: int, usuario: str = db.USUARIO_POR_DEFECTO
+) -> None:
+    """Recalcula el estado de negocio de la entrega según su documentación.
+    Una entrega ya Cerrada nunca se toca (el cierre es definitivo)."""
+    entrega = db.obtener_por_id(conn, "entregas", entrega_id)
+    if entrega is None or entrega["estado"] == "Cerrada":
+        return
+    docs = documentos_imputados_de_entrega(conn, entrega_id)
+    resultado = calcular_resultado_entrega(conn, entrega)
+    nuevo_estado = rec.estado_ciclo_de_vida(resultado, tiene_documentos=bool(docs))
+    if nuevo_estado != entrega["estado"]:
+        db.actualizar(conn, "entregas", entrega_id, {"estado": nuevo_estado}, usuario=usuario)
+
+
+def crear_imputacion(
+    conn: sqlite3.Connection,
+    entrega_id: int,
+    documento_id: int,
+    monto_imputado: float,
+    volumen_imputado: float | None,
+    metodo: str,
+    confianza: float | None = None,
+    usuario: str = db.USUARIO_POR_DEFECTO,
+) -> int:
+    return db.insertar(
+        conn, "imputaciones",
+        dict(
+            entrega_id=entrega_id, documento_id=documento_id, monto_imputado=monto_imputado,
+            volumen_imputado=volumen_imputado, metodo=metodo, confianza=confianza,
+            creado_por=usuario, creado_en=db.ahora(),
+        ),
+        usuario=usuario,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Pantalla de Faltantes
+# ---------------------------------------------------------------------------
+
+def tabla_faltantes(conn: sqlite3.Connection, periodo: str | None = None) -> list[dict]:
+    """Entregas con delta fuera de tolerancia: lo que hay que reclamarle al
+    proveedor (o esperar) para poder cerrar el período."""
+    hoy = date.today()
+    filas = []
+    for e, r in calcular_todas(conn, periodo=periodo):
+        if r.estado not in (rec.ESTADO_FALTA_ND, rec.ESTADO_FALTA_NC):
+            continue
+        try:
+            antiguedad_dias = (hoy - date.fromisoformat(e["fecha"])).days
+        except ValueError:
+            antiguedad_dias = None
+        filas.append(dict(
+            entrega_id=e["id"], proveedor=e["proveedor"], producto=e["producto"],
+            periodo_contable=e["periodo_contable"], fecha_entrega=e["fecha"],
+            remito=e["remito"], contrato_oc=e["contrato_oc"],
+            documento_esperado=r.documento_faltante, monto=r.monto_faltante,
+            moneda=r.moneda_precio, antiguedad_dias=antiguedad_dias,
+        ))
+    filas.sort(key=lambda f: (f["antiguedad_dias"] or 0), reverse=True)
+    return filas

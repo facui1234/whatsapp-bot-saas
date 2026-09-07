@@ -56,7 +56,7 @@ with db.conectar() as conn:
             df_grilla = pd.DataFrame(filas_grilla)
             editado = st.data_editor(
                 df_grilla,
-                use_container_width=True,
+                width='stretch',
                 hide_index=True,
                 disabled=["Proveedor", "Producto", "PrecioVigente", "TipoVigente"],
                 column_config={
@@ -135,7 +135,7 @@ with db.conectar() as conn:
         if f_prod != "(todos)":
             historial = [h for h in historial if h["producto"] == f_prod]
 
-        st.dataframe(pd.DataFrame(db.filas_a_dicts(historial)), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(db.filas_a_dicts(historial)), width='stretch', hide_index=True)
         st.caption("Cada fila es una versión. La vigente es la FINAL más reciente; si no hay final, la ESTIMADA más reciente.")
 
     # -- Tipo de cambio de referencia --------------------------------------
@@ -160,4 +160,4 @@ with db.conectar() as conn:
             st.rerun()
 
         tc_actuales = conn.execute("SELECT * FROM tipos_cambio ORDER BY periodo DESC").fetchall()
-        st.dataframe(pd.DataFrame(db.filas_a_dicts(tc_actuales)), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(db.filas_a_dicts(tc_actuales)), width='stretch', hide_index=True)

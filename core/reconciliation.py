@@ -20,21 +20,33 @@ Fórmula general por entrega
     delta_total  < -tolerancia -> falta una NOTA DE CRÉDITO
     |delta_total| <= tolerancia-> conciliada
 
+Ajustes por volumen (medición final, mermas, %BSW)
+----------------------------------------------------
+El volumen de la entrega puede corregirse con documentos: al cargar una ND
+o NC por volumen, se informa `volumen_imputado` con signo (positivo si el
+volumen final es MAYOR al del remito, negativo si es MENOR). El
+`valor_teorico` se calcula siempre sobre el volumen ya corregido por esos
+documentos (si no hay ninguno, es el volumen contractual de la entrega).
+Así, una vez que llega la ND/NC de volumen, el delta se cierra solo.
+
 Descomposición del delta
 -------------------------
-El delta total se separa en tres componentes que sirven para saber SI el
-faltante es por precio, por volumen (mediciones finales, mermas, %BSW) o por
-tipo de cambio (precio en USD, factura en ARS). Los tres suman el total:
+Se piden "los dos deltas aparte": por precio y por tipo de cambio. Suman
+exactamente el total:
 
-    delta_total = delta_precio + delta_volumen + delta_tipo_cambio
+    delta_total = delta_precio + delta_tipo_cambio
 
-- delta_volumen: efecto de que el volumen facturado/medido sea distinto al
-  volumen contractual de la entrega, valuado al precio aplicable.
 - delta_tipo_cambio: efecto de que el proveedor haya facturado en otra
   moneda a un tipo de cambio distinto al tipo de cambio de referencia del
   período (cargado en la pantalla de Precios).
-- delta_precio: lo que queda después de sacar volumen y tipo de cambio;
-  es la diferencia atribuible al precio unitario en sí.
+- delta_precio: lo que queda después de sacar el tipo de cambio; es la
+  diferencia atribuible al precio unitario en sí (ya con el volumen
+  corregido, si correspondía).
+
+Además se informa `delta_volumen`, un dato de auditoría: cuánto se movió
+el valor teórico por la revisión de volumen frente al volumen contractual
+original de la entrega (no forma parte de la suma de arriba: una vez
+documentado, el ajuste de volumen ya está reflejado en `valor_teorico`).
 """
 from __future__ import annotations
 
@@ -219,8 +231,12 @@ def calcular_conciliacion_entrega(
         )
 
     moneda_precio = precio.moneda
-    valor_teorico = entrega.volumen * precio.precio
-    valor_teorico_a_volumen_doc = volumen_documentado * precio.precio
+    # El valor teórico "de verdad" se calcula sobre el volumen ya corregido
+    # por ND/NC de volumen (medición final, mermas, %BSW) cuando existen;
+    # si todavía no se documentó ningún ajuste de volumen, coincide con el
+    # volumen contractual de la entrega.
+    valor_teorico = volumen_documentado * precio.precio
+    valor_teorico_contractual = entrega.volumen * precio.precio
 
     monedas_distintas = {d.moneda for d in documentos if d.moneda != moneda_precio}
     if monedas_distintas and tasa_cambio_referencia is None:
@@ -246,11 +262,16 @@ def calcular_conciliacion_entrega(
     neto_documentado_real = sum(netos_reales)
     neto_documentado_ref = sum(netos_referencia)
 
+    # delta_precio + delta_tipo_cambio = delta_total (los "dos deltas
+    # aparte" pedidos). delta_volumen es un dato informativo extra: cuánto
+    # se movió el valor teórico por la revisión de volumen respecto del
+    # volumen contractual original (no se sigue sumando aparte porque una
+    # vez documentado el ajuste de volumen, ya queda reflejado en
+    # `valor_teorico` y por lo tanto en el propio delta_total).
     delta_total = valor_teorico - neto_documentado_real
     delta_tipo_cambio = neto_documentado_ref - neto_documentado_real
-    delta_precio_y_volumen = valor_teorico - neto_documentado_ref
-    delta_volumen = valor_teorico_a_volumen_doc - valor_teorico
-    delta_precio = delta_precio_y_volumen - delta_volumen
+    delta_precio = valor_teorico - neto_documentado_ref
+    delta_volumen = valor_teorico - valor_teorico_contractual
 
     if abs(delta_total) <= tolerancia:
         estado = ESTADO_CONCILIADA
@@ -287,5 +308,5 @@ def estado_ciclo_de_vida(resultado: ResultadoConciliacion, tiene_documentos: boo
     if not tiene_documentos:
         return "Recibida sin facturar"
     if resultado.estado == ESTADO_CONCILIADA:
-        return "Facturada a precio provisorio" if resultado.tipo_precio_usado == "estimado" else "Conciliada"
+        return "Facturada a precio provisorio"
     return "Ajuste pendiente"

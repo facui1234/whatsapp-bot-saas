@@ -38,7 +38,7 @@ with db.conectar() as conn:
             entregas = [e for e in entregas if e["estado"] in f_estado]
 
         df = pd.DataFrame(db.filas_a_dicts(entregas))
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.dataframe(df, width='stretch', hide_index=True)
 
         if entregas:
             st.subheader("Detalle del cálculo del delta")
@@ -73,7 +73,7 @@ with db.conectar() as conn:
             docs = repo.documentos_imputados_de_entrega(conn, entrega_id)
             st.markdown("**Documentos imputados a esta entrega:**")
             if docs:
-                st.dataframe(pd.DataFrame(docs), use_container_width=True, hide_index=True)
+                st.dataframe(pd.DataFrame(docs), width='stretch', hide_index=True)
             else:
                 st.caption("Todavía no tiene documentos imputados.")
 
