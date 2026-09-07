@@ -74,7 +74,45 @@ que veas cómo funciona todo antes de meter tus datos reales.
 
 ---
 
-## 4. Cómo está organizada la app
+## 4. Armar un `.exe` para abrirla con doble clic (opcional)
+
+Si no querés depender de la consola, podés armar **un único archivo
+`ConciliacionCrudo.exe`**: lo copiás donde quieras y lo abrís con doble
+clic, como cualquier otro programa. No necesita que Python esté instalado
+en la máquina donde después lo uses.
+
+**Esto se hace UNA sola vez, y hay que hacerlo en una computadora con
+Windows** (un `.exe` de Windows sólo se puede generar desde Windows).
+
+1. En la computadora con Windows, con Python instalado (paso 1), abrí esta
+   carpeta y hacé doble clic en **`construir_exe.bat`**.
+2. Tarda varios minutos (baja e incluye adentro todo lo que la app
+   necesita). Cuando termina, te avisa.
+3. Tu programa queda en **`dist\ConciliacionCrudo.exe`**.
+
+Ahora podés copiar ese `.exe` al Escritorio, a una carpeta de red o a un
+pendrive, y abrirlo con doble clic. Se abre una ventana negra con un
+mensaje de "Arrancando..." y a los pocos segundos se abre solo el
+navegador con la aplicación.
+
+Tres cosas importantes:
+
+- **No cierres la ventana negra** mientras estés usando la app: es el
+  programa corriendo. Para cerrar la aplicación, cerrá esa ventana.
+- **La primera vez tarda entre 20 y 40 segundos en abrir** (tiene que
+  descomprimirse). Las veces siguientes es más rápido. Si te resulta muy
+  lento, abrí `ConciliacionCrudo.spec` con el Bloc de notas y cambiá
+  `UN_SOLO_ARCHIVO = True` por `UN_SOLO_ARCHIVO = False`: vas a obtener
+  una carpeta con el `.exe` adentro que arranca mucho más rápido (pero
+  tenés que mover la carpeta entera, no sólo el `.exe`).
+- **Los datos se guardan en una carpeta `data` al lado del `.exe`.** Si
+  movés el `.exe` a otro lado, llevate también esa carpeta `data`, o vas
+  a arrancar con la base vacía. (Igual siempre tenés el botón de backup.)
+
+En Mac o Linux el equivalente es `bash construir_exe.sh`, y el programa
+queda en `dist/ConciliacionCrudo`.
+
+## 5. Cómo está organizada la app
 
 En el menú de la izquierda vas a ver estas pantallas:
 
@@ -105,7 +143,7 @@ En el menú de la izquierda vas a ver estas pantallas:
    estimado a final después de cerrado el mes, configurar la tolerancia,
    y ver el registro de auditoría (quién cargó o cambió qué y cuándo).
 
-## 5. El flujo de trabajo típico, mes a mes
+## 6. El flujo de trabajo típico, mes a mes
 
 1. **Cargá las entregas** del mes (a mano, una por una, o subiendo el
    Excel de la plantilla) en la pantalla **Entregas** o **Importar**.
@@ -125,7 +163,7 @@ En el menú de la izquierda vas a ver estas pantallas:
    registra automáticamente el ajuste como un movimiento del **mes
    corriente** (lo ves en Cierres → Ajustes posteriores).
 
-## 6. Cómo funciona el cálculo (para entender los números)
+## 7. Cómo funciona el cálculo (para entender los números)
 
 Por cada entrega:
 
@@ -154,14 +192,14 @@ El delta total se separa en:
 La tolerancia se configura en **Cierres → ⚙️ Tolerancias** (una global y,
 opcionalmente, una distinta por proveedor).
 
-## 7. Backup de la base de datos
+## 8. Backup de la base de datos
 
 En cualquier pantalla, en la barra de la izquierda, hay un botón
 **"💾 Descargar backup de la base"**. Te baja un archivo `.db` con toda la
 información hasta ese momento. Guardalo en un lugar seguro (por ejemplo,
 un backup semanal a un pendrive o a la nube de tu empresa).
 
-## 8. Preguntas frecuentes
+## 9. Preguntas frecuentes
 
 **¿Dónde queda guardada la información?**
 En el archivo `data/conciliacion.db`, dentro de esta misma carpeta. Si
@@ -223,6 +261,11 @@ Deberías ver algo como `25 passed`.
   - `app.py` + `pages/*.py`: interfaz Streamlit (multipágina).
   - `tests/`: suite de `pytest` sobre `core/reconciliation.py`,
     `core/matching.py` y el flujo de cierre (25 tests).
+  - `lanzador.py` + `ConciliacionCrudo.spec`: empaquetado con PyInstaller.
+    El lanzador busca un puerto libre, arranca Streamlit vía
+    `streamlit.web.cli` y abre el navegador. `core/db.py` detecta
+    `sys.frozen` para leer `schema.sql` desde `sys._MEIPASS` y guardar la
+    base **al lado del ejecutable** (no en el temporal, que se borra).
 - **Correr en modo desarrollo** sin pasar por `run.sh`/`run.bat`:
   ```
   python3 -m venv .venv && source .venv/bin/activate

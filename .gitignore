@@ -7,3 +7,8 @@ data/*.db-journal
 !data/.gitkeep
 *.xlsx.tmp
 .streamlit/secrets.toml
+
+# Resultados de armar el ejecutable (se regeneran con construir_exe.bat/.sh)
+build/
+dist/
+

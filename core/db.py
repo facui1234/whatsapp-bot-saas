@@ -8,15 +8,47 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import sys
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Iterator
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = BASE_DIR / "data"
+
+
+def _empaquetada() -> bool:
+    """True cuando la app corre como ejecutable (.exe) armado con PyInstaller."""
+    return getattr(sys, "frozen", False)
+
+
+def _carpeta_de_recursos() -> Path:
+    """De dónde leer los archivos que vienen adentro del paquete (schema.sql).
+
+    En el .exe, PyInstaller los descomprime en una carpeta temporal
+    (``sys._MEIPASS``); corriendo desde el código fuente, es la carpeta del
+    proyecto.
+    """
+    if _empaquetada():
+        return Path(getattr(sys, "_MEIPASS", Path(sys.executable).resolve().parent))
+    return BASE_DIR
+
+
+def _carpeta_de_datos() -> Path:
+    """Dónde se guarda la base de datos.
+
+    En el .exe tiene que quedar AL LADO del ejecutable y no en la carpeta
+    temporal, porque Windows borra la temporal al cerrar el programa (y ahí
+    se perderían todos los datos cargados).
+    """
+    if _empaquetada():
+        return Path(sys.executable).resolve().parent / "data"
+    return BASE_DIR / "data"
+
+
+DATA_DIR = _carpeta_de_datos()
 DB_PATH = DATA_DIR / "conciliacion.db"
-SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
+SCHEMA_PATH = _carpeta_de_recursos() / "core" / "schema.sql"
 
 USUARIO_POR_DEFECTO = "usuario_local"
 
