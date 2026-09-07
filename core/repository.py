@@ -6,10 +6,14 @@ a SQL directamente ni a los dataclasses de reconciliación a mano.
 """
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import date
 
 from core import db, matching, reconciliation as rec
+
+CUENTA_PROVISION_ND = "2.1.03 Proveedores - Provisión por documentar (ND)"
+CUENTA_PROVISION_NC = "1.1.05 Deudores por NC a recibir"
 
 
 def _entrega_dataclass(row: sqlite3.Row) -> rec.Entrega:
@@ -239,3 +243,139 @@ def tabla_faltantes(conn: sqlite3.Connection, periodo: str | None = None) -> lis
         ))
     filas.sort(key=lambda f: (f["antiguedad_dias"] or 0), reverse=True)
     return filas
+
+
+# ---------------------------------------------------------------------------
+# Cierre contable
+# ---------------------------------------------------------------------------
+
+def periodo_esta_cerrado(conn: sqlite3.Connection, periodo: str) -> bool:
+    fila = conn.execute("SELECT 1 FROM cierres WHERE periodo = ?", (periodo,)).fetchone()
+    return fila is not None
+
+
+def periodos_cerrados(conn: sqlite3.Connection) -> list[str]:
+    filas = conn.execute("SELECT periodo FROM cierres").fetchall()
+    return [f["periodo"] for f in filas]
+
+
+def _snapshot_periodo(conn: sqlite3.Connection, periodo: str) -> list[dict]:
+    filas = []
+    for e, r in calcular_todas(conn, periodo=periodo):
+        provision = 0.0
+        cuenta = None
+        if r.estado == rec.ESTADO_FALTA_ND:
+            provision = r.monto_faltante
+            cuenta = CUENTA_PROVISION_ND
+        elif r.estado == rec.ESTADO_FALTA_NC:
+            provision = r.monto_faltante
+            cuenta = CUENTA_PROVISION_NC
+        filas.append(dict(
+            entrega_id=e["id"], proveedor=e["proveedor"], producto=e["producto"],
+            volumen=e["volumen"], precio_usado=r.precio_aplicable, tipo_precio=r.tipo_precio_usado,
+            moneda=r.moneda_precio, valor_teorico=r.valor_teorico,
+            neto_documentado=r.neto_documentado_moneda_precio, delta=r.delta_total,
+            estado_conciliacion=r.estado, cuenta_provision=cuenta, importe_provision=provision,
+        ))
+    return filas
+
+
+def cerrar_periodo(conn: sqlite3.Connection, periodo: str, usuario: str = db.USUARIO_POR_DEFECTO) -> None:
+    if periodo_esta_cerrado(conn, periodo):
+        raise ValueError(f"El período {periodo} ya está cerrado.")
+
+    snapshot = _snapshot_periodo(conn, periodo)
+    db.insertar(
+        conn, "cierres",
+        dict(
+            periodo=periodo, fecha_cierre=db.ahora(),
+            snapshot_json=json.dumps(snapshot, ensure_ascii=False, default=str),
+            cerrado_por=usuario,
+        ),
+        usuario=usuario,
+    )
+    for fila in snapshot:
+        db.actualizar(conn, "entregas", fila["entrega_id"], {"estado": "Cerrada"}, usuario=usuario)
+    db.registrar_auditoria(conn, "cierres", None, "cerrar", f"Período {periodo} cerrado", usuario)
+
+
+def listar_cierres(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    return db.listar(conn, "cierres", orden="periodo DESC")
+
+
+def snapshot_de_cierre(conn: sqlite3.Connection, periodo: str) -> list[dict]:
+    fila = conn.execute("SELECT snapshot_json FROM cierres WHERE periodo = ?", (periodo,)).fetchone()
+    return json.loads(fila["snapshot_json"]) if fila else []
+
+
+def asiento_provision(snapshot: list[dict]) -> list[dict]:
+    """Arma el asiento de provisión (cuenta, proveedor, importe, moneda) a
+    partir de un snapshot de cierre, agrupado por proveedor y cuenta."""
+    agrupado: dict[tuple[str, str, str], float] = {}
+    for fila in snapshot:
+        if not fila["cuenta_provision"] or not fila["importe_provision"]:
+            continue
+        clave = (fila["cuenta_provision"], fila["proveedor"], fila["moneda"] or "USD")
+        agrupado[clave] = agrupado.get(clave, 0.0) + fila["importe_provision"]
+    return [
+        dict(cuenta=cuenta, proveedor=proveedor, importe=round(importe, 2), moneda=moneda)
+        for (cuenta, proveedor, moneda), importe in sorted(agrupado.items())
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Ajustes posteriores al cierre (precio pasa de estimado a final)
+# ---------------------------------------------------------------------------
+
+def mes_actual() -> str:
+    return date.today().strftime("%Y-%m")
+
+
+def generar_ajustes_posteriores_si_corresponde(
+    conn: sqlite3.Connection, periodo: str, producto: str, proveedor: str,
+    usuario: str = db.USUARIO_POR_DEFECTO,
+) -> int:
+    """Se llama después de cargar un precio nuevo. Si el período ya estaba
+    cerrado, recalcula las entregas afectadas contra el snapshot congelado
+    y registra la diferencia como un ajuste del mes CORRIENTE (nunca toca
+    el período cerrado)."""
+    if not periodo_esta_cerrado(conn, periodo):
+        return 0
+
+    snapshot = {f["entrega_id"]: f for f in snapshot_de_cierre(conn, periodo)}
+    entregas = [
+        e for e in db.listar(conn, "entregas")
+        if e["periodo_contable"] == periodo and e["producto"] == producto and e["proveedor"] == proveedor
+    ]
+
+    creados = 0
+    periodo_ajuste = mes_actual()
+    for e in entregas:
+        original = snapshot.get(e["id"])
+        if original is None or original["valor_teorico"] is None:
+            continue
+        resultado_actual = calcular_resultado_entrega(conn, e)
+        if resultado_actual.valor_teorico is None:
+            continue
+        diferencia = resultado_actual.valor_teorico - original["valor_teorico"]
+        if abs(diferencia) < 0.01:
+            continue
+        db.insertar(
+            conn, "ajustes_posteriores",
+            dict(
+                entrega_id=e["id"], periodo_original=periodo, periodo_ajuste=periodo_ajuste,
+                delta_ajuste=diferencia,
+                motivo=(
+                    f"Recálculo por precio {resultado_actual.tipo_precio_usado} "
+                    f"(antes {original['tipo_precio']}) para {producto}/{proveedor}"
+                ),
+                fecha=db.ahora(),
+            ),
+            usuario=usuario,
+        )
+        creados += 1
+    return creados
+
+
+def listar_ajustes_posteriores(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    return db.listar(conn, "ajustes_posteriores", orden="fecha DESC")

@@ -10,6 +10,7 @@ from core import bootstrap, db, reconciliation as rec, repository as repo
 
 st.set_page_config(page_title="Precios", page_icon="💲", layout="wide")
 bootstrap.asegurar_base()
+bootstrap.mostrar_barra_lateral()
 st.title("💲 Precios")
 
 with db.conectar() as conn:
@@ -68,6 +69,7 @@ with db.conectar() as conn:
 
             if st.button("Guardar precios cargados", type="primary"):
                 cargados = 0
+                ajustes_generados = 0
                 for _, fila in editado.iterrows():
                     if fila["NuevoPrecio"] in (None, "", 0) or pd.isna(fila["NuevoPrecio"]):
                         continue
@@ -78,8 +80,17 @@ with db.conectar() as conn:
                         creado_por=db.USUARIO_POR_DEFECTO,
                     ))
                     cargados += 1
+                    ajustes_generados += repo.generar_ajustes_posteriores_si_corresponde(
+                        conn, periodo, fila["Producto"], fila["Proveedor"]
+                    )
                 if cargados:
                     st.success(f"Se cargaron {cargados} precios nuevos.")
+                    if ajustes_generados:
+                        st.info(
+                            f"El período {periodo} ya estaba cerrado: se generaron "
+                            f"{ajustes_generados} ajuste(s) posteriore(s) en el mes corriente "
+                            "(ver pantalla Cierres)."
+                        )
                     st.rerun()
                 else:
                     st.warning("No completaste ningún precio nuevo.")
@@ -118,7 +129,16 @@ with db.conectar() as conn:
                     precio=precio_f, moneda=moneda_f, tipo=tipo_f, fuente=fuente_f or None,
                     fecha_carga=db.ahora(), creado_por=db.USUARIO_POR_DEFECTO,
                 ))
+                ajustes_generados = repo.generar_ajustes_posteriores_si_corresponde(
+                    conn, periodo_f, producto_f, proveedor_f
+                )
                 st.success("Precio cargado como una versión nueva (no se pisó ningún precio anterior).")
+                if ajustes_generados:
+                    st.info(
+                        f"El período {periodo_f} ya estaba cerrado: se generaron "
+                        f"{ajustes_generados} ajuste(s) posteriore(s) en el mes corriente "
+                        "(ver pantalla Cierres)."
+                    )
                 st.rerun()
 
     # -- Historial --------------------------------------------------------

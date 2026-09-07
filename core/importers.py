@@ -12,7 +12,7 @@ import sqlite3
 
 import pandas as pd
 
-from core import db, validators as val
+from core import db, repository as repo, validators as val
 
 CAMPOS_ENTREGAS = [c.nombre for c in val.COLUMNAS_ENTREGAS]
 CAMPOS_PRECIOS = [c.nombre for c in val.COLUMNAS_PRECIOS]
@@ -125,10 +125,14 @@ def importar_entregas(conn: sqlite3.Connection, filas: list[dict], usuario: str)
 
 def importar_precios(conn: sqlite3.Connection, filas: list[dict], usuario: str) -> int:
     ahora = db.ahora()
+    combos_afectados = set()
     for d in filas:
         d["fecha_carga"] = ahora
         d["creado_por"] = usuario
         db.insertar(conn, "precios", d, usuario=usuario)
+        combos_afectados.add((d["periodo"], d["producto"], d["proveedor"]))
+    for periodo, producto, proveedor in combos_afectados:
+        repo.generar_ajustes_posteriores_si_corresponde(conn, periodo, producto, proveedor, usuario)
     db.registrar_auditoria(conn, "precios", None, "importar", f"{len(filas)} filas importadas", usuario)
     return len(filas)
 

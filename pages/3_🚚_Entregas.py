@@ -8,6 +8,7 @@ from core import bootstrap, db, repository as repo
 
 st.set_page_config(page_title="Entregas", page_icon="🚚", layout="wide")
 bootstrap.asegurar_base()
+bootstrap.mostrar_barra_lateral()
 st.title("🚚 Entregas")
 
 ESTADOS = [
@@ -90,6 +91,13 @@ with db.conectar() as conn:
             opciones = {f"#{e['id']} - {e['proveedor']} - {e['remito'] or ''}": e["id"] for e in todas}
             elegido = st.selectbox("Entrega a editar", list(opciones.keys()))
             entrega_existente = db.obtener_por_id(conn, "entregas", opciones[elegido])
+            if entrega_existente["estado"] == "Cerrada":
+                st.error(
+                    "Esta entrega pertenece a un período CERRADO y no se puede modificar. "
+                    "Si el precio pasó de estimado a final, cargalo en Precios: el sistema "
+                    "genera el ajuste como movimiento del mes corriente."
+                )
+                st.stop()
 
         def valor(campo, default=""):
             return entrega_existente[campo] if entrega_existente else default

@@ -13,6 +13,7 @@ from core import bootstrap, db, repository as repo
 
 st.set_page_config(page_title="Conciliación de Crudo", page_icon="🛢️", layout="wide")
 bootstrap.asegurar_base()
+bootstrap.mostrar_barra_lateral()
 
 st.title("🛢️ Conciliación de compras de crudo")
 st.caption(

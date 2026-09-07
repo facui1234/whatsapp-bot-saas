@@ -9,6 +9,7 @@ from core import bootstrap, db, repository as repo
 
 st.set_page_config(page_title="Documentos", page_icon="📄", layout="wide")
 bootstrap.asegurar_base()
+bootstrap.mostrar_barra_lateral()
 st.title("📄 Documentos")
 
 TIPOS_DOC = ["FACTURA", "ND", "NC"]

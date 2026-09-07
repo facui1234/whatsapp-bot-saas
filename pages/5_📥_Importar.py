@@ -9,6 +9,7 @@ from core import bootstrap, db, importers as imp, templates
 
 st.set_page_config(page_title="Importar", page_icon="📥", layout="wide")
 bootstrap.asegurar_base()
+bootstrap.mostrar_barra_lateral()
 st.title("📥 Importar")
 
 ENTIDADES = {

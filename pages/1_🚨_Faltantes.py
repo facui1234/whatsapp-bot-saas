@@ -11,6 +11,7 @@ from core import bootstrap, db, repository as repo
 
 st.set_page_config(page_title="Faltantes", page_icon="🚨", layout="wide")
 bootstrap.asegurar_base()
+bootstrap.mostrar_barra_lateral()
 st.title("🚨 Faltantes de documentación")
 st.caption("Entregas cuyo delta está fuera de la tolerancia: esto es lo que falta reclamarle al proveedor.")
 
