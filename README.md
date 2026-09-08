@@ -74,28 +74,55 @@ que veas cómo funciona todo antes de meter tus datos reales.
 
 ---
 
-## 4. Armar un `.exe` para abrirla con doble clic (opcional)
+## 4. Usar el `.exe`: abrirla con doble clic
 
-Si no querés depender de la consola, podés armar **un único archivo
+En vez de la consola podés usar **un único archivo
 `ConciliacionCrudo.exe`**: lo copiás donde quieras y lo abrís con doble
-clic, como cualquier otro programa. No necesita que Python esté instalado
-en la máquina donde después lo uses.
+clic, como cualquier otro programa. **No necesita que Python esté
+instalado** en la máquina donde lo uses, así que sirve para pasárselo a
+otra persona o dejarlo en una carpeta de red.
 
-**Esto se hace UNA sola vez, y hay que hacerlo en una computadora con
-Windows** (un `.exe` de Windows sólo se puede generar desde Windows).
+Hay dos maneras de conseguirlo. La primera es la más fácil.
 
-1. En la computadora con Windows, con Python instalado (paso 1), abrí esta
-   carpeta y hacé doble clic en **`construir_exe.bat`**.
-2. Tarda varios minutos (baja e incluye adentro todo lo que la app
-   necesita). Cuando termina, te avisa.
+### Opción A — Bajarlo ya compilado (recomendada)
+
+Cada vez que se sube un cambio, GitHub compila el ejecutable solo en una
+máquina Windows y lo deja listo para descargar. Vos sólo lo bajás:
+
+1. Entrá a la lista de compilaciones:
+   https://github.com/facui1234/whatsapp-bot-saas/actions/workflows/construir-exe.yml
+2. Hacé clic en la primera de la lista que tenga el tilde verde ✅
+   (es la más reciente que salió bien).
+3. Bajá hasta el final de la página, hasta donde dice **Artifacts**, y
+   hacé clic en **ConciliacionCrudo-windows**. Se descarga un `.zip`
+   de unos 80 MB. Tenés que estar con tu usuario de GitHub iniciado.
+4. Descomprimí el `.zip`: adentro está `ConciliacionCrudo.exe`.
+
+### Opción B — Compilarlo vos
+
+Si preferís armarlo en tu propia máquina, necesitás Windows con Python
+instalado (paso 1). Se hace una sola vez:
+
+1. Abrí esta carpeta y hacé doble clic en **`construir_exe.bat`**.
+2. Tarda varios minutos. Cuando termina, te avisa.
 3. Tu programa queda en **`dist\ConciliacionCrudo.exe`**.
 
-Ahora podés copiar ese `.exe` al Escritorio, a una carpeta de red o a un
-pendrive, y abrirlo con doble clic. Se abre una ventana negra con un
-mensaje de "Arrancando..." y a los pocos segundos se abre solo el
-navegador con la aplicación.
+En Mac o Linux el equivalente es `bash construir_exe.sh`, y el programa
+queda en `dist/ConciliacionCrudo`.
 
-Tres cosas importantes:
+### Y después, con cualquiera de las dos
+
+Copiá el `.exe` al Escritorio, a una carpeta de red o a un pendrive, y
+abrilo con doble clic. Se abre una ventana negra con un mensaje de
+"Arrancando..." y a los pocos segundos se abre solo el navegador con la
+aplicación.
+
+**La primera vez Windows te va a desconfiar.** Como el programa no está
+firmado digitalmente, puede aparecer un cartel azul que dice *"Windows
+protegió su PC"*. Hacé clic en **Más información** y después en
+**Ejecutar de todas formas**. Pasa una sola vez.
+
+Otras tres cosas para tener en cuenta:
 
 - **No cierres la ventana negra** mientras estés usando la app: es el
   programa corriendo. Para cerrar la aplicación, cerrá esa ventana.
@@ -108,9 +135,6 @@ Tres cosas importantes:
 - **Los datos se guardan en una carpeta `data` al lado del `.exe`.** Si
   movés el `.exe` a otro lado, llevate también esa carpeta `data`, o vas
   a arrancar con la base vacía. (Igual siempre tenés el botón de backup.)
-
-En Mac o Linux el equivalente es `bash construir_exe.sh`, y el programa
-queda en `dist/ConciliacionCrudo`.
 
 ## 5. Cómo está organizada la app
 
@@ -261,6 +285,9 @@ Deberías ver algo como `25 passed`.
   - `app.py` + `pages/*.py`: interfaz Streamlit (multipágina).
   - `tests/`: suite de `pytest` sobre `core/reconciliation.py`,
     `core/matching.py` y el flujo de cierre (25 tests).
+  - `.github/workflows/construir-exe.yml`: compila el `.exe` en un runner
+    `windows-latest` (tests → PyInstaller → smoke test levantando el
+    binario contra `localhost:8501`) y lo sube como artefacto descargable.
   - `lanzador.py` + `ConciliacionCrudo.spec`: empaquetado con PyInstaller.
     El lanzador busca un puerto libre, arranca Streamlit vía
     `streamlit.web.cli` y abre el navegador. `core/db.py` detecta

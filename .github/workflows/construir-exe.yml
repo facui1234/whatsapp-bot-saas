@@ -11,6 +11,8 @@ on:
   push:
     branches:
       - claude/crude-oil-reconciliation-app-0lmksz
+    paths-ignore:
+      - "**.md"
   workflow_dispatch:
 
 permissions:
