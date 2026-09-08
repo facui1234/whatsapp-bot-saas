@@ -1,0 +1,73 @@
+# Compila ConciliacionCrudo.exe en una máquina Windows de GitHub y lo deja
+# listo para descargar. Sirve para no tener que compilarlo a mano: un .exe de
+# Windows sólo se puede generar desde Windows.
+#
+# Se dispara solo con cada push a la rama de desarrollo, y también a mano
+# desde la pestaña Actions del repositorio.
+
+name: Construir ejecutable de Windows
+
+on:
+  push:
+    branches:
+      - claude/crude-oil-reconciliation-app-0lmksz
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  construir:
+    runs-on: windows-latest
+
+    steps:
+      - name: Traer el código
+        uses: actions/checkout@v4
+
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Correr los tests del motor de conciliación
+        run: pytest -q
+
+      - name: Armar el ejecutable
+        run: pyinstaller --noconfirm --clean ConciliacionCrudo.spec
+
+      - name: Verificar que el ejecutable arranca
+        shell: pwsh
+        run: |
+          $exe = "dist\ConciliacionCrudo.exe"
+          if (-not (Test-Path $exe)) { throw "No se generó $exe" }
+          $tamanio = [math]::Round((Get-Item $exe).Length / 1MB, 1)
+          Write-Host "Ejecutable generado: $exe ($tamanio MB)"
+
+          # Lo levantamos en segundo plano y comprobamos que sirve la app.
+          $proceso = Start-Process -FilePath $exe -PassThru
+          $ok = $false
+          foreach ($intento in 1..30) {
+              Start-Sleep -Seconds 5
+              try {
+                  $r = Invoke-WebRequest -Uri "http://localhost:8501" -UseBasicParsing -TimeoutSec 10
+                  if ($r.StatusCode -eq 200) { $ok = $true; break }
+              } catch { }
+          }
+          Stop-Process -Id $proceso.Id -Force -ErrorAction SilentlyContinue
+          if (-not $ok) { throw "El ejecutable no respondió en http://localhost:8501" }
+          Write-Host "OK: el ejecutable levanta la aplicación correctamente."
+
+      - name: Publicar el ejecutable para descargar
+        uses: actions/upload-artifact@v4
+        with:
+          name: ConciliacionCrudo-windows
+          path: dist/ConciliacionCrudo.exe
+          retention-days: 90
+          if-no-files-found: error
